@@ -11,7 +11,7 @@ import { ItemLog } from "../models/itemLog.model.js";
 
 const addNewItem = asyncHandler(async (req, res) => {
   const {
-    name, 
+    name,
     category,
     subCategory,
     floor,
@@ -243,9 +243,9 @@ const getInventoryItemStats = asyncHandler(async (req, res) => {
   for (const stat of stats) {
     const status = stat._id;
     const count = stat.count;
-    if (status !== "Out of order") {
-      inventoryStats.totalItems += count;
-    }
+
+    inventoryStats.totalItems += count;
+
     if (status === "In use") inventoryStats.inUse = count;
     else if (status === "Under repair") inventoryStats.underRepair = count;
     else if (status === "Out of order") inventoryStats.outOfOrder = count;

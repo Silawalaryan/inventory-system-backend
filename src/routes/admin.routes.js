@@ -45,7 +45,7 @@ const router = Router();
 router.route("/addNewItem").post(addNewItem);
 router.route("/filterItems").post(verifyJwt, filterItems);
 router.route("/:itemId/getSimilarItems").get(getSimilarItemsStats);
-router.route("/inventoryStats").get(verifyJwt, getInventoryItemStats);
+router.route("/inventoryStats").get(verifyJwt,getInventoryItemStats);
 router.route("/:itemId/moveItem").post(verifyJwt, moveItemBetweenRooms);
 router.route("/:itemId/updateStatus").post(verifyJwt, updateItemStatus);
 router.route("/:itemId/getItemLogs").get(verifyJwt, getItemLogs);
