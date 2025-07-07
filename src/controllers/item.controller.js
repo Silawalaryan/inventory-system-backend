@@ -325,6 +325,69 @@ const getOverallItemLogs = asyncHandler(async (req, res) => {
       new ApiResponse(201, overallItemLogs, "Item logs fetched successfully")
     );
 });
+const getOverallRoomsDetails = asyncHandler(async (req, res) => {
+  const roomStats = await Item.aggregate([
+    {
+      $group: {
+        _id: {
+          room: "$room",
+          status: "$status",
+        },
+        count: { $sum: 1 },
+      },
+    },
+    {
+      $group: {
+        _id: "$_id.room",
+        statusCounts: {
+          $push: {
+            status: "$_id.status",
+            count: "$count",
+          },
+        },
+        totalItems: {
+          $sum: "$count",
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "rooms",
+        localField: "_id",
+        foreignField: "_id",
+        as: "roomDetails",
+      },
+    },
+    {
+      $unwind: "$roomDetails",
+    },
+    {
+      $lookup: {
+        from: "floors",
+        localField: "roomDetails.floor",
+        foreignField: "_id",
+        as: "floorDetails",
+      },
+    },
+    {
+      $unwind: "$floorDetails",
+    },
+    {
+      $project: {
+        _id: 0,
+        roomId: "$_id",
+        roomName: "$roomDetails.name",
+        floorId: "$roomDetails.floor",
+        floorName: "$floorDetails.name",
+        totalItems: 1,
+        statusCounts: 1,
+      },
+    },
+  ]);
+  return res
+    .status(201)
+    .json(new ApiResponse(201, roomStats, "Room stats fetched"));
+});
 
 export {
   addNewItem,
@@ -336,4 +399,5 @@ export {
   moveItemBetweenRooms,
   getItemLogs,
   getOverallItemLogs,
+  getOverallRoomsDetails,
 };
