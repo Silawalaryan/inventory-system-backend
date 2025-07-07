@@ -7,6 +7,7 @@ import {
   moveItemBetweenRooms,
   updateItemStatus,
   getItemLogs,
+  getOverallItemLogs,
 } from "../controllers/item.controller.js";
 import {
   addNewCategory,
@@ -42,13 +43,14 @@ import {
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 const router = Router();
 //Item routes
-router.route("/addNewItem").post(addNewItem);
+router.route("/addNewItem").post(verifyJwt, addNewItem);
 router.route("/filterItems").post(verifyJwt, filterItems);
 router.route("/:itemId/getSimilarItems").get(getSimilarItemsStats);
-router.route("/inventoryStats").get(verifyJwt,getInventoryItemStats);
+router.route("/inventoryStats").get(verifyJwt, getInventoryItemStats);
 router.route("/:itemId/moveItem").post(verifyJwt, moveItemBetweenRooms);
 router.route("/:itemId/updateStatus").post(verifyJwt, updateItemStatus);
 router.route("/:itemId/getItemLogs").get(verifyJwt, getItemLogs);
+router.route("/overallLogs").get(verifyJwt, getOverallItemLogs);
 
 //Category Routes
 router.route("/categories").post(addNewCategory);

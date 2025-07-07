@@ -42,21 +42,23 @@ const addNewItem = asyncHandler(async (req, res) => {
   if (insertedItems.length === 0) {
     throw new ApiError(500, "Items could not be added successfully");
   }
-  // await Item.populate(insertedItems, {
-  //   path: "room",
-  //   select: "name",
-  // });
-  // const logs = insertedItems.map((item) => ({
-  //   itemId: item._id,
-  //   action: "Created",
-  //   performedBy: req.user?._id,
-  //   toRoom: item.room._id,
-  //   newStatus: item.status,
-  //   toRoomName: item.room.name,
-  //   note: `${req.user.username} added '${item.name}' to ${item.room.name}.`,
-  // }));
+  await Item.populate(insertedItems, {
+    path: "room",
+    select: "name",
+  });
+  const logs = insertedItems.map((item) => ({
+    itemId: item._id,
+    action: "added",
+    performedBy: req.user?._id,
+    toRoom: item.room._id,
+    newStatus: item.status,
+    toRoomName: item.room.name,
+    performedByName: req.user.username,
+    itemName: item.name,
+    note: `${req.user.username} added '${item.name}' to ${item.room.name}.`,
+  }));
 
-  // await ItemLog.insertMany(logs); // Efficient batch insert
+  await ItemLog.insertMany(logs); // Efficient batch insert
   return res
     .status(201)
     .json(
@@ -82,18 +84,19 @@ const updateItemStatus = asyncHandler(async (req, res) => {
     itemId,
     { status },
     { new: true }
-  );
+  ).populate("room", "name");
   if (!updatedItem) {
     throw new ApiError(404, "Updated Item not found.");
   }
   await addItemLog({
     itemId: itemId,
-    action: "Status Changed",
+    action: `marked as ${updatedItem.status}`,
     performedBy: req.user._id,
     oldStatus: item.status,
     newStatus: updatedItem.status,
     itemName: updatedItem.name,
     performedByName: req.user.username,
+    toRoomName: updatedItem.room.name,
     note: `${req.user.username} changed status of ${updatedItem.name} from ${item.status} to ${updatedItem.status}`,
   });
   res
@@ -116,18 +119,19 @@ const softDeleteItem = asyncHandler(async (req, res) => {
     itemId,
     { status: "Out of order" },
     { new: true }
-  );
+  ).populate("room", "name");
   if (!updatedItem) {
     throw new ApiError(404, "Updated Item not found.");
   }
   await addItemLog({
     itemId: itemId,
-    action: "Deleted",
+    action: "removed",
     performedBy: req.user._id,
     oldStatus: item.status,
     newStatus: updatedItem.status,
     itemName: updatedItem.name,
     performedByName: req.user.username,
+    toRoomName: updatedItem.room.name,
     note: `${req.user.username} deleted ${updatedItem.name}.`,
   });
   res
@@ -278,7 +282,7 @@ const moveItemBetweenRooms = asyncHandler(async (req, res) => {
   await item.save({ validateBeforeSave: false });
   await addItemLog({
     itemId: item._id,
-    action: "Moved Room",
+    action: "moved",
     performedBy: req.user._id,
     fromRoom: oldRoomId,
     toRoom: newRoom._id,
@@ -310,6 +314,17 @@ const getItemLogs = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, itemLogs, "Item Logs fetched successfully."));
 });
+const getOverallItemLogs = asyncHandler(async (req, res) => {
+  const overallItemLogs = await ItemLog.find().sort({ createdAt: -1 });
+  if (overallItemLogs.length === 0) {
+    throw new ApiError(404, "Item logs not found");
+  }
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(201, overallItemLogs, "Item logs fetched successfully")
+    );
+});
 
 export {
   addNewItem,
@@ -320,4 +335,5 @@ export {
   getInventoryItemStats,
   moveItemBetweenRooms,
   getItemLogs,
+  getOverallItemLogs,
 };

@@ -120,14 +120,14 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
   const options = {
-    // httpOnly: true,
-    //secure: true,
+     httpOnly: true,
+    secure: true,
   };
   return (
     res
       .status(201)
-      // .cookie("accessToken", accessToken, options)
-      // .cookie("refreshToken", refreshToken, options)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
       .json(
         new ApiResponse(
           201,
