@@ -388,6 +388,12 @@ const getOverallRoomsDetails = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, roomStats, "Room stats fetched"));
 });
+const showAllItems = asyncHandler(async (req, res) => {
+  const allItems = await Item.find().populate("subCategory", "name").sort({createdAt:-1});
+  return res
+    .status(201)
+    .json(new ApiResponse(201, allItems, "All items fetched successfully"));
+});
 
 export {
   addNewItem,
@@ -400,4 +406,5 @@ export {
   getItemLogs,
   getOverallItemLogs,
   getOverallRoomsDetails,
+  showAllItems
 };

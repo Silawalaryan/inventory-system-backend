@@ -8,7 +8,8 @@ import {
   updateItemStatus,
   getItemLogs,
   getOverallItemLogs,
-  getOverallRoomsDetails
+  getOverallRoomsDetails,
+  showAllItems,
 } from "../controllers/item.controller.js";
 import {
   addNewCategory,
@@ -53,7 +54,7 @@ router.route("/:itemId/updateStatus").post(verifyJwt, updateItemStatus);
 router.route("/:itemId/getItemLogs").get(verifyJwt, getItemLogs);
 router.route("/overallLogs").get(verifyJwt, getOverallItemLogs);
 router.route("/roomsDetails").get(verifyJwt, getOverallRoomsDetails);
-
+router.route("/showAllItems").get(verifyJwt, showAllItems);
 
 //Category Routes
 router.route("/categories").post(addNewCategory);
