@@ -17,7 +17,8 @@ const addNewFloor = asyncHandler(async (req, res) => {
 
 const displayAllFloors = asyncHandler(async (req, res) => {
   const floors = await Floor.find();
-  res.status(201).json(201, floors, "All floors fetched successfully");
+  console.log(floors);
+  res.status(201).json(new ApiResponse(201, floors, "All floors fetched successfully"));
 });
 
 const updateFloor = asyncHandler(async (req, res) => {
