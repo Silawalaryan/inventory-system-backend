@@ -86,11 +86,6 @@ router.route("/rooms").get(displayAllRooms);
 router.route("rooms/:id").patch(updateRoom);
 router.route("rooms/:id").delete(deleteRoom);
 
-//User Routes
-router.route("/register").post(registerUser);
-router.route("/pending-users").get(getPendingUsers);
-router.route("/users/:userId/approve").patch(approveUserRegistration);
-router.route("/login").post(loginUser);
-router.route("/logout").post(verifyJwt, logoutUser);
+
 
 export default router;

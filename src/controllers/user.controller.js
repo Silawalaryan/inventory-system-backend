@@ -116,9 +116,6 @@ const loginUser = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
     user._id
   );
-  const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
   const options = {
      httpOnly: true,
     secure: true,
@@ -131,7 +128,7 @@ const loginUser = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           201,
-          { loggedInUser, accessToken, refreshToken },
+          {accessToken, refreshToken },
           "User logged in successfully"
         )
       )
