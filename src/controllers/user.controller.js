@@ -269,7 +269,5 @@ export {
   changeCurrentPassword,
   editProfileDetails,
   deleteUser,
-  getAllActiveUsers,
-  searchActiveUsersByUsername,
   getActiveUsers
 };
