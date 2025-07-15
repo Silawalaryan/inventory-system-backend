@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { PAGINATION_LIMIT } from "../constants.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -209,6 +210,81 @@ const editProfileDetails = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, updatedUser, "Profile editing successful."));
 });
+const deleteUser = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  if (!req.isAdmin) {
+    throw new ApiError(403, "Only admins can delete an user");
+  }
+  const deletedUser = await User.findByIdAndUpdate(
+    userId,
+    { isActive: false },
+    { new: true }
+  ).select("_id isActive");
+  if (!deletedUser) {
+    throw new ApiError(404, "User deletion unsuccessful");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, deletedUser, "User deleted successfully."));
+});
+const getAllActiveUsers = asyncHandler(async (req, res) => {
+  let { page } = req.params;
+  page = parseInt(page, 10) || 1; //defaults to 1 incase of falsy values
+  if (!req.isAdmin) {
+    throw new ApiError(403, "Only admins view the list of users");
+  }
+  const skip = (page - 1) * PAGINATION_LIMIT;
+  const filter = { isActive: true };
+  const users = await User.find(filter, { password: 0, refreshToken: 0 })
+    .skip(skip)
+    .limit(PAGINATION_LIMIT);
+  const totalUsers = await User.countDocuments(filter);
+  if (users.length === 0) {
+    throw new ApiError(404, "Users not found");
+  }
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { totalUsers, users },
+        "Active users fetched successfully"
+      )
+    );
+});
+const searchActiveUsersByUsername = asyncHandler(async(req,res)=>{
+  const {username} = req.params;
+  let {page}=req.params;
+  page = parseInt(page,10)||1;
+  if(!req.isAdmin){
+    throw new ApiError(403,"Only admin can search for users.");
+
+  }
+  const searchRegex = new RegExp(username,"i")//i flag for case insensitive flag match
+  //object carrying filter criteria
+  const filter = {
+    isActive:true,
+    username:{$regex:searchRegex}
+  }
+   const skip = (page - 1) * PAGINATION_LIMIT;
+  const users = await User.find(filter,{password:0,refreshToken:0})   .skip(skip)
+    .limit(PAGINATION_LIMIT);
+  const totalUsers = await User.countDocuments(filter);
+  if (users.length === 0) {
+    throw new ApiError(404, "Matching users not found");
+  }
+   return res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { totalUsers, users },
+        `Active users matching ${username}successfully`
+      )
+    );
+
+})
+
 export {
   registerUser,
   getPendingUsers,
@@ -217,4 +293,7 @@ export {
   logoutUser,
   changeCurrentPassword,
   editProfileDetails,
+  deleteUser,
+  getAllActiveUsers,
+  searchActiveUsersByUsername
 };
