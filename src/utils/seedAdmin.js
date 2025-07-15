@@ -1,9 +1,9 @@
 import { User } from "../models/user.model.js";
 import { ApiError } from "./ApiError.js";
 const createAdminIfItDoesntExist = async () => {
-  const { ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
+  const { ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD,ADMIN_PHONE } = process.env;
   if (
-    [ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_USERNAME].some(
+    [ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_USERNAME,ADMIN_PHONE].some(
       (field) => field?.trim() === ""
     )
   ) {
@@ -21,7 +21,7 @@ const createAdminIfItDoesntExist = async () => {
       password: ADMIN_PASSWORD,
       username: ADMIN_USERNAME,
       role: "admin",
-      status: "approved",
+      phone_number:ADMIN_PHONE
     });
   }
 };

@@ -17,26 +17,24 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
+    phone_number: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     role: {
       type: String,
       enum: ["admin", "general"],
       default: "general",
       required: true,
     },
-    status: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
-    },
-    approvedAt: {
-      type: Date,
-    },
-    rejectedAt: {
-      type: Date,
-    },
-    decidedBy: {
+    createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
     },
     refreshToken: {
       type: String,

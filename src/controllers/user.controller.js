@@ -21,9 +21,16 @@ const generateAccessAndRefreshTokens = async (userId) => {
   }
 };
 const registerUser = asyncHandler(async (req, res) => {
-  const { username, email, password, role } = req.body;
-  if ([username, email, password, role].some((field) => field.trim() === "")) {
+  const { username, email, password, role, phone_number } = req.body;
+  if (
+    [username, email, password, role, phone_number].some(
+      (field) => field.trim() === ""
+    )
+  ) {
     throw new ApiError(403, "All fields are compulsory.");
+  }
+  if (!req.isAdmin) {
+    throw new ApiError(400, "Only admins can register a new user");
   }
   const existingUser = await User.findOne({
     $or: [{ email }, { username }],
@@ -44,24 +51,16 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     role,
-    status: "pending",
+    phone_number,
+    createdBy: req.user._id,
   });
   if (!user) {
     throw new ApiError(402, "User could not be registered succesfully");
   }
   const createdUser = await User.findById(user._id).select("-password");
-  // if(!(email === process.env.ADMIN_EMAIL)){
-  //   noitfyAboutPendingUsers(createdUser);
-  // }
   res
     .status(201)
-    .json(
-      new ApiResponse(
-        201,
-        createdUser,
-        "User registered. Waiting for approval."
-      )
-    );
+    .json(new ApiResponse(201, createdUser, "User registered successfully"));
 });
 //getPendingUsers is to be seen thoroughly once again for the use of sockets and create a real time dashboard
 // right now its just a simple rest controller which is fired when a particular endpoint is hit
@@ -117,22 +116,20 @@ const loginUser = asyncHandler(async (req, res) => {
     user._id
   );
   const options = {
-     httpOnly: true,
+    httpOnly: true,
     secure: true,
   };
-  return (
-    res
-      .status(201)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
-      .json(
-        new ApiResponse(
-          201,
-          {accessToken, refreshToken },
-          "User logged in successfully"
-        )
+  return res
+    .status(201)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        201,
+        { accessToken, refreshToken },
+        "User logged in successfully"
       )
-  );
+    );
 });
 const logoutUser = asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(
@@ -155,26 +152,62 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, user, "User logged out successfully."));
 });
 const changeCurrentPassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword, confirmedNewPassword } = req.body;
-  if (newPassword !== confirmedNewPassword) {
-    throw new ApiError(400, "New and confirmed password dont match.");
+  const { current_password, new_password, confirmed_newpassword } = req.body;
+  if (new_password !== confirmed_newpassword) {
+    throw new ApiError(400, "New password and confirmed password dont match.");
   }
-  if (oldPassword === newPassword) {
+  if (current_password === new_password) {
     throw new ApiError(
       400,
-      "Old and new password are the same.Nothing to update"
+      "Current password and new password are the same.Nothing to update"
     );
   }
   const user = await User.findById(req.user._id);
-  const isOldPasswordValid = await user.isPasswordCorrect(oldPassword);
-  if (!isOldPasswordValid) {
-    throw new ApiError(400, "Old password is incorrect.");
+  const isCurrentPasswordValid = await user.isPasswordCorrect(current_password);
+  if (!isCurrentPasswordValid) {
+    throw new ApiError(400, "Current password is incorrect.");
   }
-  user.password = newPassword;
+  user.password = new_password;
   await user.save({ validateBeforeSave: false });
   return res
     .status(201)
     .json(new ApiResponse(201, {}, "Password changed Successfully."));
+});
+const editProfileDetails = asyncHandler(async (req, res) => {
+  const { email, phone_number } = req.body;
+  const query = {};
+  if (!(email || phone_number)) {
+    throw new ApiError(
+      401,
+      "Provide at least one of the editable profile parameters"
+    );
+  }
+  if (email) {
+    const existing = await User.findOne({ email, _id: { $ne: req.user._id } });
+    if (existing) {
+      throw new ApiError(409, "Email already in use.");
+    }
+    query.email = email;
+  }
+  if (phone_number) {
+    const existing = await User.findOne({
+      phone_number,
+      _id: { $ne: req.user._id },
+    });
+    if (existing) {
+      throw new ApiError(409, "Phone number already in use.");
+    }
+    query.phone_number = phone_number;
+  }
+  const updatedUser = await User.findByIdAndUpdate(req.user._id, query, {
+    new: true,
+  }).select("-password -refreshToken");
+  if (!updatedUser) {
+    throw new ApiError(403, "Editing profile details unsuccessful");
+  }
+  return res
+    .status(201)
+    .json(new ApiResponse(200, updatedUser, "Profile editing successful."));
 });
 export {
   registerUser,
@@ -183,4 +216,5 @@ export {
   loginUser,
   logoutUser,
   changeCurrentPassword,
+  editProfileDetails,
 };
