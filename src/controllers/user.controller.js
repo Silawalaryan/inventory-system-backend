@@ -227,20 +227,28 @@ const deleteUser = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, deletedUser, "User deleted successfully."));
 });
-const getAllActiveUsers = asyncHandler(async (req, res) => {
+const getActiveUsers = asyncHandler(async (req, res) => {
+  const { username } = req.params;
   let { page } = req.params;
-  page = parseInt(page, 10) || 1; //defaults to 1 incase of falsy values
-  if (!req.isAdmin) {
-    throw new ApiError(403, "Only admins view the list of users");
-  }
+  page = parseInt(page, 10) || 1;//defaults to 1 in case of falsy values
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const filter = { isActive: true };
+  if (!req.isAdmin) {
+    throw new ApiError(403, "Only admin can search for users.");
+  }
+    const filter = { isActive: true };
+  if (username) {
+    const searchRegex = new RegExp(username, "i"); //i flag for case insensitive flag match
+    filter.username = { $regex: searchRegex };
+  }
   const users = await User.find(filter, { password: 0, refreshToken: 0 })
     .skip(skip)
     .limit(PAGINATION_LIMIT);
   const totalUsers = await User.countDocuments(filter);
   if (users.length === 0) {
-    throw new ApiError(404, "Users not found");
+    throw new ApiError(
+      404,
+      `${username ? "Matching users" : "Users"} not found`
+    );
   }
   return res
     .status(201)
@@ -248,43 +256,10 @@ const getAllActiveUsers = asyncHandler(async (req, res) => {
       new ApiResponse(
         201,
         { totalUsers, users },
-        "Active users fetched successfully"
+        `Active users ${username ? `matching ${username} ` : ""}fetched successfully`
       )
     );
 });
-const searchActiveUsersByUsername = asyncHandler(async(req,res)=>{
-  const {username} = req.params;
-  let {page}=req.params;
-  page = parseInt(page,10)||1;
-  if(!req.isAdmin){
-    throw new ApiError(403,"Only admin can search for users.");
-
-  }
-  const searchRegex = new RegExp(username,"i")//i flag for case insensitive flag match
-  //object carrying filter criteria
-  const filter = {
-    isActive:true,
-    username:{$regex:searchRegex}
-  }
-   const skip = (page - 1) * PAGINATION_LIMIT;
-  const users = await User.find(filter,{password:0,refreshToken:0})   .skip(skip)
-    .limit(PAGINATION_LIMIT);
-  const totalUsers = await User.countDocuments(filter);
-  if (users.length === 0) {
-    throw new ApiError(404, "Matching users not found");
-  }
-   return res
-    .status(201)
-    .json(
-      new ApiResponse(
-        201,
-        { totalUsers, users },
-        `Active users matching ${username}successfully`
-      )
-    );
-
-})
-
 export {
   registerUser,
   getPendingUsers,
@@ -295,5 +270,6 @@ export {
   editProfileDetails,
   deleteUser,
   getAllActiveUsers,
-  searchActiveUsersByUsername
+  searchActiveUsersByUsername,
+  getActiveUsers
 };
