@@ -1,51 +1,66 @@
 import mongoose, { Schema } from "mongoose";
 const itemSchema = new Schema(
   {
-    name: {
+    itemName: {
       type: String,
       required: true,
     },
-    category: {
+    itemCategory: {
       type: Schema.Types.ObjectId,
       ref: "Category",
       required: true,
     },
-    subCategory: {
-      type: Schema.Types.ObjectId,
-      ref: "SubCategory",
+    itemModelNumberOrMake: {
+      type: String,
     },
-    acquiredDate: {
+    itemAcquiredDate: {
       type: Date,
       required: true,
     },
-    price: {
+    itemCost: {
       type: Number,
       required: true,
     },
-    floor: {
+    itemFloor: {
       type: Schema.Types.ObjectId,
       ref: "Floor",
       required: true,
     },
-    room: {
+    itemRoom: {
       type: Schema.Types.ObjectId,
       ref: "Room",
       required: true,
     },
-    status: {
+    itemStatus: {
       type: String,
-      enum: ["In use", "Under repair", "Out of order"],
+      enum: ["Working", "Repairable", "Not working"],
       required: true,
     },
-    source: {
+    itemSource: {
       type: String,
       enum: ["Purchase", "Donation"],
       required: true,
     },
-    description: {
+    itemDescription: {
       type: String,
+    },
+    itemSerialNumber: {
+      type: String,
+      default: 0,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   { timestamps: true }
 );
+itemSchema.index({ updatedAt: -1 });
+itemSchema.index({ itemSerialNumber:1  });
+itemSchema.index({ itemSerialNumber: "text" });
+
 export const Item = mongoose.model("Item", itemSchema);

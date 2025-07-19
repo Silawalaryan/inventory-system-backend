@@ -260,6 +260,13 @@ const getActiveUsers = asyncHandler(async (req, res) => {
       )
     );
 });
+const getCurrentUser = asyncHandler(async(req,res)=>{
+  const user = await User.findById(req.user._id).select("username email role");
+  if(!user){
+    throw new ApiError(404,"User not found");
+  }
+  return res.status(201).json(new ApiResponse(201,user,"Current user fetched successfully"));
+})
 export {
   registerUser,
   getPendingUsers,
@@ -269,5 +276,5 @@ export {
   changeCurrentPassword,
   editProfileDetails,
   deleteUser,
-  getActiveUsers
+  getActiveUsers,getCurrentUser
 };

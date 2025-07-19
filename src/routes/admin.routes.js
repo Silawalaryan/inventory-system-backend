@@ -24,12 +24,6 @@ import {
   deleteSubCategory,
 } from "../controllers/subCategory.controller.js";
 import {
-  addNewFloor,
-  displayAllFloors,
-  updateFloor,
-  deleteFloor,
-} from "../controllers/floor.controller.js";
-import {
   addNewRoom,
   displayAllRooms,
   updateRoom,
@@ -42,7 +36,8 @@ import {
   registerUser,
   logoutUser,
 } from "../controllers/user.controller.js";
-import { verifyJwt } from "../middlewares/auth.middleware.js";
+import { verifyJwt} from "../middlewares/auth.middleware.js";
+import { verifyAdmin } from "../middlewares/admin_check.middleware.js";
 const router = Router();
 //Item routes
 router.route("/addNewItem").post(verifyJwt, addNewItem);
@@ -73,12 +68,6 @@ router
 router
   .route("/categories/:categoryId/subcategories/:subCategoryId")
   .delete(deleteSubCategory);
-
-//Floor Routes
-router.route("/floors").post(addNewFloor);
-router.route("/floors").get(displayAllFloors);
-router.route("/floors/:id").patch(updateFloor);
-router.route("/floors/:id").delete(deleteFloor);
 
 //Room Routes
 router.route("/floors/:floorId/rooms").post(addNewRoom);

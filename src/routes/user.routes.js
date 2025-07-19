@@ -7,6 +7,7 @@ import {
   editProfileDetails,
   deleteUser,
   getActiveUsers,
+  getCurrentUser,
 } from "../controllers/user.controller.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { verifyAdmin } from "../middlewares/admin_check.middleware.js";
@@ -17,10 +18,11 @@ router.route("/login").post(loginUser);
 router.route("/logout").post(verifyJwt, logoutUser);
 router.route("/change-password").patch(verifyJwt, changeCurrentPassword);
 router.route("/edit-profile").patch(verifyJwt, editProfileDetails);
-router.route("/:userId/delete-user").delete(verifyJwt, verifyAdmin, deleteUser);
-router.route("/get-users/:page").get(verifyJwt, verifyAdmin, getActiveUsers);
+router.route("/:userId").delete(verifyJwt, verifyAdmin, deleteUser);
+router.route("/:page").get(verifyJwt, verifyAdmin, getActiveUsers);
 router
-  .route("/search-users/:username/:page")
+  .route("/:username/:page")
   .get(verifyJwt, verifyAdmin, getActiveUsers);
+router.route("/current-user").get(verifyJwt, getCurrentUser);
 
 export default router;

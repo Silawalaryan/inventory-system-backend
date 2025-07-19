@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 const roomSchema = new Schema(
   {
-    name: {
+    roomName: {
       type: String,
       required: true,
     },
@@ -9,8 +9,36 @@ const roomSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Floor",
     },
+    roomType: {
+      type: Schema.Types.ObjectId,
+      ref: "RoomType",
+    },
+    allottedTo: {
+      type: String,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
+);
+//indexing to run efficient text-based queries
+roomSchema.index(
+  {
+    roomName: "text",
+    allottedTo: "text",
+  },
+  {
+    weights: {
+      roomName: 10,
+      allottedTo: 5,
+    },
+  }
 );
 export const Room = mongoose.model("Room", roomSchema);
 //here a single floor can have multiple rooms. so there is a one to many relationship.

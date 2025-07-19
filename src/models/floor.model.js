@@ -1,9 +1,17 @@
 import mongoose, { Schema } from "mongoose";
 const floorSchema = new Schema(
   {
-    name: {
+    floorName: {
       type: String,
       required: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true }
