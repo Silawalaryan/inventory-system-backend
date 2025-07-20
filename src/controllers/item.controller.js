@@ -11,6 +11,8 @@ import { ItemLog } from "../models/itemLog.model.js";
 import { PAGINATION_LIMIT } from "../constants.js";
 import { trimValues } from "../utils/trimmer.js";
 import { parseObjectId } from "../utils/parseObjectId.js";
+import { ActivityLog } from "../models/activityLog.model.js";
+import { addActivityLog } from "../utils/addActivityLog.js";
 
 const addNewItem = asyncHandler(async (req, res) => {
   const {
@@ -86,23 +88,35 @@ const addNewItem = asyncHandler(async (req, res) => {
   if (insertedItems.length === 0) {
     throw new ApiError(500, "Items could not be added successfully");
   }
-  await Item.populate(insertedItems, {
-    path: "room",
-    select: "name",
-  });
+  await Item.populate(
+    insertedItems,
+    {
+      path: "itemRoom",
+      select: "roomName",
+    },
+    {
+      path: "itemFloor",
+      select: "floorName",
+    }
+  );
   const logs = insertedItems.map((item) => ({
-    itemId: item._id,
     action: "added",
-    performedBy: req.user?._id,
-    toRoom: item.room._id,
-    newStatus: item.status,
-    toRoomName: item.room.name,
+    entityType: "Item",
+    entityId: item._id,
+    entityName: item.itemName,
+    performedBy: req.user._id,
     performedByName: req.user.username,
-    itemName: item.name,
-    note: `${req.user.username} added '${item.name}' to ${item.room.name}.`,
+    performedByRole: req.user.role,
+    changes: {
+      room: { from: null, to: item.itemRoom, roomName },
+      status: { from: null, to: item.itemStatus },
+      floor: { from: null, to: item.itemFloor.floorName },
+      isActive: { from: null, to: true },
+    },
+    description: `${req.user.username}(${req.user.role}) added an item '${item.itemName}' to room '${item.itemRoom.roomName}'`,
   }));
 
-  await ItemLog.insertMany(logs); // Efficient batch insert
+  await ActivityLog.insertMany(logs); // Efficient batch insert
   return res
     .status(201)
     .json(
@@ -121,9 +135,9 @@ const updateItemStatus = asyncHandler(async (req, res) => {
   if (!allowedStatus.includes(status)) {
     throw new ApiError(403, "Bad request:Invalid status.");
   }
-  const item = await Item.findById(itemId);
-  if (!item) {
-    throw new ApiError(404, "Item not found.");
+  const itemInContention = await Item.findById(itemId).populate("itemRoom","roomName").populate("itemFloor","floorName").lean();
+  if (!itemInContention) {
+    throw new ApiError(404, "Item with provided id not found.");
   }
   const updatedItem = await Item.findByIdAndUpdate(
     itemId,
@@ -133,16 +147,21 @@ const updateItemStatus = asyncHandler(async (req, res) => {
   if (!updatedItem) {
     throw new ApiError(500, "Item status updation unsuccessful.");
   }
-  await addItemLog({
-    itemId: itemId,
-    action: `marked as ${updatedItem.status}`,
+  await addActivityLog({
+    action: "changed status",
+    entityType: "Item",
+    entityId: itemId,
+    entityName: item.itemName,
     performedBy: req.user._id,
-    oldStatus: item.status,
-    newStatus: updatedItem.status,
-    itemName: updatedItem.name,
     performedByName: req.user.username,
-    toRoomName: updatedItem.room.name,
-    note: `${req.user.username} changed status of ${updatedItem.name} from ${item.status} to ${updatedItem.status}`,
+    performedByRole: req.user.role,
+    changes: {
+      room: { from: itemInContention.itemRoom.roomName, to: itemInContention.itemRoom.roomName },
+      floor: { from: itemInContention.itemFloor.floorName, to: itemInContention.itemFloor.floorName },
+      status: { from: itemInContention.itemStatus, to: updatedItem.itemStatus },
+      isActive: { from: true, to: true },
+    },
+    description: `${req.user.username}(${req.user.role}) changed status of item '${itemInContention.itemName}' to '${updatedItem.itemStatus}'`,
   });
   res
     .status(200)
@@ -158,9 +177,9 @@ const softDeleteItem = asyncHandler(async (req, res) => {
   const { item_id } = req.params;
   const [itemId] = parseObjectId([trimValues(item_id)]);
 
-  const item = await Item.findById(itemId);
+  const item = await Item.findById(itemId).populate("itemRoom","roomName").populate("itemFloor","floorName").lean();
   if (!item) {
-    throw new ApiError(404, "Item not found.");
+    throw new ApiError(404, "Item with the provided id not found.");
   }
   const deletedItem = await Item.findByIdAndUpdate(
     itemId,
@@ -170,16 +189,21 @@ const softDeleteItem = asyncHandler(async (req, res) => {
   if (!deletedItem) {
     throw new ApiError(500, "Item deletion unsuccessful.");
   }
-  await addItemLog({
-    itemId: itemId,
+  await addActivityLog({
     action: "removed",
+    entityType: "Room",
+    entityId: item._id,
+    entityName: item.itemName,
     performedBy: req.user._id,
-    oldStatus: item.status,
-    newStatus: updatedItem.status,
-    itemName: updatedItem.name,
     performedByName: req.user.username,
-    toRoomName: updatedItem.room.name,
-    note: `${req.user.username} deleted ${updatedItem.name}.`,
+    performedByRole: req.user.role,
+    changes: {
+      room: { from: item.itemRoom.roomName, to: item.itemRoom.roomName },
+      floor: { from: item.itemFloor.floorName, to: item.itemFloor.floorName },
+      status: { from: item.itemStatus, to: item.itemStatus },
+      isActive: { from: true, to: false },
+    },
+    description: `${req.user.username}(${req.user.role}) removed item '${item.itemName}'`,
   });
   res
     .status(20)
@@ -188,7 +212,7 @@ const softDeleteItem = asyncHandler(async (req, res) => {
 });
 const updateItemDetails = asyncHandler(async (req, res) => {
   const { item_id } = req.params;
-  const [itemId] = parseObjectId([trimValues([item_id])]);
+  const [itemId] = parseObjectId(trimValues([item_id]));
   const {
     item_name,
     item_description,
@@ -211,6 +235,10 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     item_make_or_model_no,
     item_source,
   ]);
+  const itemInContention = await Item.findById(itemId).populate("itemRoom","roomName").populate("itemFloor","floorName").lean();
+  if (!itemInContention) {
+    throw new ApiError(404, "Item with provided id not found.");
+  }
   const [itemCategory] = parseObjectId([itemCategoryString]);
   const query = {};
   if (itemName) {
@@ -238,8 +266,24 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     new: true,
   });
   if (!updatedItem) {
-    throw new ApiError(500, "Updationg item details unsuccessful.");
+    throw new ApiError(500, "Updating item details unsuccessful.");
   }
+  await addActivityLog({
+    action: "edited details",
+    entityType: "Item",
+    entityId: itemId,
+    entityName: updatedItem.itemName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      room: { from: itemInContention.itemRoom.roomName, to: itemInContention.itemRoom.roomName },
+      floor: { from: itemInContention.itemFloor.floorName, to: itemInContention.itemFloor.floorName },
+      status: { from: itemInContention.itemStatus, to:itemInContention.itemStatus },
+      isActive: { from: true, to: true },
+    },
+    description: `${req.user.username}(${req.user.role}) edited details of item '${itemInContention.itemName}'`,
+  });
   return res
     .status(200)
     .json(
@@ -247,23 +291,21 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     );
 });
 const filterItems = asyncHandler(async (req, res) => {
-  const { category_id, room_id, status, source, starting_date, end_date } = req.body;
+  const { category_id, room_id, status, source, starting_date, end_date } =
+    req.body;
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const [categoryIdString, roomIdString, statusValue, sourceValue] = trimValues([
-    category,
-    room,
-    status,
-    source,
-  ]);
+  const [categoryIdString, roomIdString, statusValue, sourceValue] = trimValues(
+    [category, room, status, source]
+  );
   const filter = {};
   filter.isActive = true;
-  if(categoryIdString && categoryIdString !== "All"){
+  if (categoryIdString && categoryIdString !== "All") {
     const [categoryId] = parseObjectId([categoryIdString]);
     filter.itemCategory = categoryId;
   }
-   if(roomIdString && roomIdString !== "All"){
+  if (roomIdString && roomIdString !== "All") {
     const [roomId] = parseObjectId([roomIdString]);
     filter.itemRoom = roomId;
   }
@@ -504,13 +546,13 @@ const moveItemBetweenRooms = asyncHandler(async (req, res) => {
 
   const { new_room_id } = req.body;
   const [itemId, newRoomId] = parseObjectId(trimValues(item_id, new_room_id));
-  const item = await Item.findById(itemId).populate("itemRoom", "roomName");
+  const item = await Item.findById(itemId).populate("itemRoom", "roomName").populate("itemFloor","floorName").lean();
   const oldRoomName = item.itemRoom.roomName;
   const oldRoomId = item.itemRoom._id;
   if (!item) {
     throw new ApiError(404, "Item not found.");
   }
-  const newRoom = await Room.findById(newRoomId);
+  const newRoom = await Room.findById(newRoomId).populate("floor","floorName").lean();
   if (!newRoom) {
     throw new ApiError(404, "New room not found.");
   }
@@ -528,17 +570,21 @@ const moveItemBetweenRooms = asyncHandler(async (req, res) => {
       `Item could not be moved successfully to room ${newRoom.roomName}`
     );
   }
-  await addItemLog({
-    itemId: itemId,
+  await addActivityLog({
     action: "moved",
+    entityType: "Item",
+    entityId: itemId,
+    entityName: item.itemName,
     performedBy: req.user._id,
-    fromRoom: oldRoomId,
-    toRoom: newRoom._id,
     performedByName: req.user.username,
-    fromRoomName: oldRoomName,
-    toRoomName: newRoom.roomName,
-    itemName: item.itemName,
-    note: `${req.user.username} moved ${item.itemName} from room ${oldRoomName} to ${newRoom.roomName}`,
+    performedByRole: req.user.role,
+    changes: {
+      room: { from: item.itemRoom.roomName, to: newRoom.roomName },
+      floor: { from: item.itemFloor.floorName, to: newRoom.floor.floorName },
+      status: { from: item.itemStatus, to: item.itemStatus },
+      isActive: { from: true, to: true },
+    },
+    description: `${req.user.username}(${req.user.role}) moved '${item.itemName}' to '${newRoom.roomName}'`,
   });
   return res
     .status(200)
@@ -976,18 +1022,159 @@ const getSpecificItem = asyncHandler(async (req, res) => {
 });
 //in this functionality we are trying to group together the items having same name,category and model
 //along with that we are going to fetch the reports of those items with their number in each of the status
-const getMultipleItems =asyncHandler(async(req,res)=>{
-  let {page} = req.params;
-  page = parseInt(page,10) ||1;
-  const skip = (page-1)*PAGINATION_LIMIT;
-  const totalItems = await Item.countDocuments({isActive:true});
+const getMultipleItems = asyncHandler(async (req, res) => {
+  let { page } = req.params;
+  page = parseInt(page, 10) || 1;
+  const skip = (page - 1) * PAGINATION_LIMIT;
+  const totalItems = await Item.countDocuments({ isActive: true });
   const commonItemsStatusReport = await Item.aggregate([
     {
-      
-    }
-  ])
-
-})
+      $match: { isActive: true },
+    },
+    {
+      $group: {
+        _id: {
+          itemName: "$itemName",
+          itemCategory: "$itemCategory",
+          itemModel: "$itemModelNumberOrMake",
+        },
+        noWorkingItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Working"] }, 1, 0],
+          },
+        },
+        noRepairableItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Repairable"] }, 1, 0],
+          },
+        },
+        noNotWorkingItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Not working"] }, 1, 0],
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        totalCount: {
+          $add: ["$workingCount", "$repairableCount", "$notWorkingCount"],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        itemName: "$_id.itemName",
+        itemCategory: "$_id.itemCategory",
+        itemModel: "$_id.itemModel",
+        noWorkingItems: 1,
+        noRepairableItems: 1,
+        noNotWorkingItems: 1,
+        totalCount: 1,
+      },
+    },
+    {
+      $sort: { totalCount: -1 },
+    },
+    {
+      $skip: skip,
+    },
+    {
+      $limit: PAGINATION_LIMIT,
+    },
+  ]);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { totalItems, itemData: commonItemsStatusReport },
+        "Report for common items fetched successfully."
+      )
+    );
+});
+const filterMultipleItems = asyncHandler(async (req, res) => {
+  const { category_id } = req.params;
+  const [categoryId] = parseObjectId(trimValues([category_id]));
+  let { page } = req.params;
+  page = parseInt(page, 10) || 1;
+  const skip = (page - 1) * PAGINATION_LIMIT;
+  const filter = {
+    isActive: true,
+    itemCategory: categoryId,
+  };
+  const totalMatchingItems = await Item.countDocuments(filter);
+  if (!totalMatchingItems) {
+    throw new ApiError(404, "Matching items not found.");
+  }
+  const matchingItemsStatusReport = await Item.aggregate([
+    {
+      $match: filter,
+    },
+    {
+      $group: {
+        _id: {
+          itemName: "$itemName",
+          itemCategory: "$itemCategory",
+          itemModel: "$itemModelNumberOrMake",
+        },
+        noWorkingItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Working"] }, 1, 0],
+          },
+        },
+        noRepairableItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Repairable"] }, 1, 0],
+          },
+        },
+        noNotWorkingItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Not working"] }, 1, 0],
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        totalCount: {
+          $add: ["$workingCount", "$repairableCount", "$notWorkingCount"],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        itemName: "$_id.itemName",
+        itemCategory: "$_id.itemCategory",
+        itemModel: "$_id.itemModel",
+        noWorkingItems: 1,
+        noRepairableItems: 1,
+        noNotWorkingItems: 1,
+        totalCount: 1,
+      },
+    },
+    {
+      $sort: { totalCount: -1 },
+    },
+    {
+      $skip: skip,
+    },
+    {
+      $limit: PAGINATION_LIMIT,
+    },
+  ]);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { totalMatchingItems, itemData: matchingItemsStatusReport },
+        "Report for common items filtered by category fetched successfully."
+      )
+    );
+});
 export {
   addNewItem,
   updateItemStatus,
@@ -1005,4 +1192,6 @@ export {
   itemSearchByItemSerialNumber,
   getSpecificItem,
   updateItemDetails,
+  getMultipleItems,
+  filterMultipleItems,
 };

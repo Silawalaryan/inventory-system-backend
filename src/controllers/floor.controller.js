@@ -2,6 +2,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Floor } from "../models/floor.model.js";
+import { addActivityLog } from "../utils/addActivityLog.js";
+import { trimValues } from "../utils/trimmer.js";
+import { parseObjectId } from "../utils/parseObjectId.js";
 
 const addNewFloor = asyncHandler(async (req, res) => {
   const { floorName } = req.body;
@@ -16,6 +19,16 @@ const addNewFloor = asyncHandler(async (req, res) => {
   if (!floor) {
     throw new ApiError(500, "Floor addition unsuccessful.");
   }
+  await addActivityLog({
+    action: "added",
+    entityType: "Floor",
+    entityId: floor._id,
+    entityName: floor.floorName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    description: `${req.user.username}(${req.user.role}) added a floor '${floor.floorName}'`,
+  });
   res.status(201).json(new ApiResponse(201, floor, "Floor added successfully"));
 });
 
@@ -31,21 +44,42 @@ const displayAllFloors = asyncHandler(async (req, res) => {
 
 const updateFloor = asyncHandler(async (req, res) => {
   const { floorName } = req.body;
+  const [floorId] = parseObjectId(trimValues([req.params.id]))
   if (!req.isAdmin) {
     throw new ApiError(403, "Only admins can update floor details");
   }
-  const existing = await Floor.findOne({floorName,_id:{$ne:req.params.id}});
-  if(existing){
-    throw new ApiError(409,"Floor name already in use.")
+  const floorInContention = await Floor.findById(floorId);
+  if(!currentFloor){
+    throw new ApiError(404,"Floor with the given id not found.");
+  }
+  const existing = await Floor.findOne({
+    floorName,
+    _id: { $ne: req.params.id },
+  });
+  if (existing) {
+    throw new ApiError(409, "Floor name already in use.");
   }
   const floor = await Floor.findByIdAndUpdate(
-    req.params.id,
+    floorId,
     { floorName },
     { new: true }
   );
   if (!floor) {
     throw new ApiError(404, "Floor not found");
   }
+  await addActivityLog({
+    action: "edited details",
+    entityType: "Floor",
+    entityId: floor._id,
+    entityName: floorInContention.floorName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      name: { from: floorInContention.floorName, to: floor.floorName },
+    },
+    description: `${req.user.username}(${req.user.role}) renamed '${floorInContention.floorName}' to '${floor.floorName}'`,
+  });
   res
     .status(201)
     .json(new ApiResponse(201, floor, "Floor updated successfully."));
@@ -65,6 +99,19 @@ const deleteFloor = asyncHandler(async (req, res) => {
   if (!deletionResult) {
     throw new ApiError(404, "Floor not found");
   }
+  await addActivityLog({
+    action: "removed",
+    entityType: "Floor",
+    entityId: deletionResult._id,
+    entityName: deletionResult.floorName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      isActive: { from: true, to:false },
+    },
+    description: `${req.user.username}(${req.user.role}) removed floor '${deletionResult.floorName}'`,
+  });
   res.status(201).json(new ApiResponse(201, {}, "Floor Deleted Successfully"));
 });
 

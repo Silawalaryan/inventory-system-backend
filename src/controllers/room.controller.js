@@ -7,16 +7,16 @@ import { RoomType } from "../models/roomType.model.js";
 import { PAGINATION_LIMIT } from "../constants.js";
 import { trimValues } from "../utils/trimmer.js";
 import { parseObjectId } from "../utils/parseObjectId.js";
+import { addActivityLog } from "../utils/addActivityLog.js";
 
 const addNewRoom = asyncHandler(async (req, res) => {
-  const { room_name, room_floor_id, room_type_id ,allotted_to} = req.body;
-  const [roomName, roomFloorIdString, roomTypeIdString,allottedTo] = trimValues([
-    room_name,
-    room_floor_id,
-    room_type_id,
-    allotted_to
+  const { room_name, room_floor_id, room_type_id, allotted_to } = req.body;
+  const [roomName, roomFloorIdString, roomTypeIdString, allottedTo] =
+    trimValues([room_name, room_floor_id, room_type_id, allotted_to]);
+  const [roomFloorId, roomTypeId] = parseObjectId([
+    roomFloorIdString,
+    roomTypeIdString,
   ]);
-  const [ roomFloorId,roomTypeId] = parseObjectId([roomFloorIdString,roomTypeIdString]);
   if (
     [roomName, roomFloorId, roomTypeId].some(
       (elem) => typeof elem !== "string" || elem.trim() === ""
@@ -42,12 +42,22 @@ const addNewRoom = asyncHandler(async (req, res) => {
     roomType: roomTypeId,
     createdBy: req.user._id,
   };
-  if(allottedTo){
+  if (allottedTo) {
     query.allottedTo = allottedTo;
   }
   const existingRoom = await Room.findOne(query);
   if (existingRoom) throw new ApiError(409, "Room already exists");
   const room = await Room.create(query);
+  await addActivityLog({
+    action: "added",
+    entityType: "Room",
+    entityId: room._id,
+    entityName: room.roomName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    description: `${req.user.username}(${req.user.role}) added a room '${room.roomName}'`,
+  });
   res.status(201).json(new ApiResponse(201, room, "Room added successfully."));
 });
 
@@ -149,13 +159,13 @@ const displayAllRooms = asyncHandler(async (req, res) => {
 const updateRoomDetails = asyncHandler(async (req, res) => {
   const { room_id } = req.params;
   const { room_name, room_floor_id, room_type_id } = req.body;
-  const [roomName, roomFloorIdString, roomTypeIdString,roomIdString] = trimValues([
-    room_name,
-    room_floor_id,
-    room_type_id,
-    room_id
+  const [roomName, roomFloorIdString, roomTypeIdString, roomIdString] =
+    trimValues([room_name, room_floor_id, room_type_id, room_id]);
+  const [roomFloorId, roomTypeId, roomId] = parseObjectId([
+    roomFloorIdString,
+    roomTypeIdString,
+    roomIdString,
   ]);
-  const [ roomFloorId,roomTypeId,roomId] = parseObjectId([roomFloorIdString,roomTypeIdString,roomIdString])
   if (!(roomName || roomFloorId || roomTypeId)) {
     throw new ApiError(
       400,
@@ -164,6 +174,13 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
   }
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admins can update room details");
+  }
+  const roomInContention = await Room.findById(roomId)
+    .populate("floor", "floorName")
+    .populate("roomType", "roomTypeName")
+    .lean();
+  if (!existingRoom) {
+    throw new ApiError(404, "Room with the given id not found.");
   }
   const updateQuery = {};
   if (roomName) {
@@ -174,16 +191,41 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
     if (existingRoomName) {
       throw new ApiError(409, "Room name already taken");
     }
+    changesForActivityLog.name = { from:roomInContention.roomName, to: roomName };
     updateQuery.roomName = roomName;
   }
-  if (roomFloorId) updateQuery.floor = roomFloorId;
-  if (roomTypeId) updateQuery.roomType = roomTypeId;
+  if (roomFloorId) {
+    const validFloor = await Floor.findById(roomFloorId);
+    if (!validFloor) {
+      throw new ApiError(404, "Floor with the provided id not found.");
+    }
+    changesForActivityLog.floor = { from: roomInContention.floor.floorName, to:validFloor.floorName};
+    updateQuery.floor = roomFloorId;
+  }
+  if (roomTypeId){
+    const validRoomType = await Floor.findById(roomTypeId);
+    if (!validRoomType) {
+      throw new ApiError(404, "Room type with the provided id not found.");
+    }
+    changesForActivityLog.roomType = { from: roomInContention.roomType.roomTypeName, to:validRoomType.roomTypeName};
+    updateQuery.roomType = roomTypeId;}
   const updatedRoom = await Room.findByIdAndUpdate(roomId, updateQuery, {
     new: true,
   });
   if (!updatedRoom) {
-    throw new ApiError(404, "Room not found");
+    throw new ApiError(500, "Room updation unsuccessful");
   }
+    await addActivityLog({
+    action: "edited details",
+    entityType: "Room",
+    entityId: roomInContention._id,
+    entityName: roomInContention.roomName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes:changesForActivityLog,
+    description: `${req.user.username}(${req.user.role}) edited details of room '${existingRoom.roomName}'`,
+  });
   res
     .status(200)
     .json(
@@ -204,6 +246,19 @@ const deleteRoom = asyncHandler(async (req, res) => {
   if (!deletionResult) {
     throw new ApiError(404, "Room not found");
   }
+  await addActivityLog({
+    action: "removed",
+    entityType: "Room",
+    entityId: deletionResult._id,
+    entityName: deletionResult.roomName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      isActive: { from: true, to: false },
+    },
+    description: `${req.user.username}(${req.user.role}) removed room '${deletionResult.roomName}'`,
+  });
   res.status(200).json(new ApiResponse(200, {}, "Room deleted successfully"));
 });
 const filterRoomsByFloor = asyncHandler(async (req, res) => {

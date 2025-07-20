@@ -5,6 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { PAGINATION_LIMIT } from "../constants.js";
+import { addActivityLog } from "../utils/addActivityLog.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -31,7 +32,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(403, "All fields are compulsory.");
   }
   if (!req.isAdmin) {
-    throw new ApiError(400, "Only admins can register a new user");
+    throw new ApiError(401, "Only admins can register a new user");
   }
   const existingUser = await User.findOne({
     $or: [{ email }, { username }],
@@ -56,9 +57,19 @@ const registerUser = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
   if (!user) {
-    throw new ApiError(402, "User could not be registered succesfully");
+    throw new ApiError(500, "User could not be registered succesfully");
   }
   const createdUser = await User.findById(user._id).select("-password");
+  await addActivityLog({
+    action:"created",
+    entityType:"User",
+    entityId:user._id,
+    entityName:user.username,
+    performedBy:req.user._id,
+    performedByName:req.user.username,
+    performedByRole:req.user.role,
+    description:`${req.user.username}(${req.user.role}) created a user '${user.username}'`
+  })
   res
     .status(201)
     .json(new ApiResponse(201, createdUser, "User registered successfully"));
@@ -120,6 +131,16 @@ const loginUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
   };
+   await addActivityLog({
+    action:"logged in",
+    entityType:"User",
+    entityId:user._id,
+    entityName:user.username,
+    performedBy:user._id,
+    performedByName:user.username,
+    performedByRole:user.role,
+    description:`${user.username}(${user.role}) logged in`
+  })
   return res
     .status(201)
     .cookie("accessToken", accessToken, options)
@@ -146,6 +167,16 @@ const logoutUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
   };
+   await addActivityLog({
+    action:"logged out",
+    entityType:"User",
+    entityId:user._id,
+    entityName:user.username,
+    performedBy:user._id,
+    performedByName:user.username,
+    performedByRole:user.role,
+    description:`${user.username}(${user.role}) logged out`
+  })
   return res
     .status(201)
     .clearCookie("accessToken", options)
@@ -170,6 +201,16 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   }
   user.password = new_password;
   await user.save({ validateBeforeSave: false });
+   await addActivityLog({
+    action:"changed password",
+    entityType:"User",
+    entityId:user._id,
+    entityName:user.username,
+    performedBy:user._id,
+    performedByName:user.username,
+    performedByRole:user.role,
+    description:`${user.username}(${user.role}) changed login credentials`
+  })
   return res
     .status(201)
     .json(new ApiResponse(201, {}, "Password changed Successfully."));
@@ -206,6 +247,16 @@ const editProfileDetails = asyncHandler(async (req, res) => {
   if (!updatedUser) {
     throw new ApiError(403, "Editing profile details unsuccessful");
   }
+   await addActivityLog({
+    action:"edited profile details",
+    entityType:"User",
+    entityId:req.user._id,
+    entityName:req.user.username,
+    performedBy:req.user._id,
+    performedByName:req.user.username,
+    performedByRole:req.user.role,
+    description:`${req.user.username}(${req.user.role}) edited profile details`
+  })
   return res
     .status(201)
     .json(new ApiResponse(200, updatedUser, "Profile editing successful."));
@@ -223,6 +274,16 @@ const deleteUser = asyncHandler(async (req, res) => {
   if (!deletedUser) {
     throw new ApiError(404, "User deletion unsuccessful");
   }
+   await addActivityLog({
+    action:"removed",
+    entityType:"User",
+    entityId:deletedUser._id,
+    entityName:deletedUser.username,
+    performedBy:req.user._id,
+    performedByName:req.user.username,
+    performedByRole:req.user.role,
+    description:`${req.user.username}(${req.user.role}) removed user '${deletedUser.username}'`
+  })
   return res
     .status(200)
     .json(new ApiResponse(200, deletedUser, "User deleted successfully."));

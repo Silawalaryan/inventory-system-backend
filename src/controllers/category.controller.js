@@ -5,6 +5,8 @@ import { Category } from "../models/category.model.js";
 import { trimValues } from "../utils/trimmer.js";
 import { PAGINATION_LIMIT } from "../constants.js";
 import { parseObjectId } from "../utils/parseObjectId.js";
+import { addActivityLog } from "../utils/addActivityLog.js";
+
 const addNewCategory = asyncHandler(async (req, res) => {
   const { category_name, category_abbr } = req.body;
   const [categoryName, categoryAbbreviation] = trimValues([
@@ -30,6 +32,16 @@ const addNewCategory = asyncHandler(async (req, res) => {
     categoryName,
     categoryAbbreviation,
     createdBy: req.user._id,
+  });
+  await addActivityLog({
+    action: "added",
+    entityType: "Category",
+    entityId: category._id,
+    entityName: category.categoryName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    description: `${req.user.username}(${req.user.role}) added a category '${category.categoryName}'`,
   });
   res
     .status(201)
@@ -65,7 +77,12 @@ const updateCategory = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can update category details");
   }
+  const categoryInContention = await Category.findById(categoryId);
+  if(!existingCategory){
+    throw new ApiError(404,"Category with given id not found.");
+  }
   const updateQuery = {};
+  let changesForActivityLog = {};
   if (categoryName) {
     const existing = await Category.findOne({
       categoryName,
@@ -74,6 +91,10 @@ const updateCategory = asyncHandler(async (req, res) => {
     if (existing) {
       throw new ApiError(409, "Category name is already taken");
     }
+    changesForActivityLog.name = {
+      from: categoryInContention.categoryName,
+      to: categoryName,
+    };
     updateQuery.categoryName = categoryName;
   }
   if (categoryAbbreviation) {
@@ -84,6 +105,10 @@ const updateCategory = asyncHandler(async (req, res) => {
     if (existing) {
       throw new ApiError(409, "Category abbreviation is already taken");
     }
+    changesForActivityLog.abbr = {
+      from: categoryInContention.categoryAbbreviation,
+      to: categoryAbbreviation,
+    };
     updateQuery.categoryAbbreviation = categoryAbbreviation;
   }
   const updatedCategory = await Category.findByIdAndUpdate(
@@ -94,6 +119,17 @@ const updateCategory = asyncHandler(async (req, res) => {
   if (!updatedCategory) {
     throw new ApiError(404, "Category not found");
   }
+  await addActivityLog({
+    action: "edited details",
+    entityType: "Category",
+    entityId: updatedCategory._id,
+    entityName: categoryInContention.categoryName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: changesForActivityLog,
+    description: `${req.user.username}(${req.user.role}) edited details of category '${categoryInContention.categoryName}'`,
+  });
   res
     .status(200)
     .json(
@@ -108,6 +144,9 @@ const updateCategory = asyncHandler(async (req, res) => {
 const deleteCategory = asyncHandler(async (req, res) => {
   const { category_id } = req.params;
   const [categoryId] = parseObjectId([trimValues(category_id)]);
+  if (!req.isAdmin) {
+    throw new ApiError(401, "Only admin can delete a category.");
+  }
   const deletionResult = await Category.findByIdAndUpdate(
     categoryId,
     { isActive: false },
@@ -116,6 +155,19 @@ const deleteCategory = asyncHandler(async (req, res) => {
   if (!deletionResult) {
     throw new ApiError(404, "Category not found");
   }
+  await addActivityLog({
+    action: "removed",
+    entityType: "Category",
+    entityId: deletionResult._id,
+    entityName: deletionResult.categoryName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      isActive: { from: true, to: false },
+    },
+    description: `${req.user.username}(${req.user.role}) removed category '${deletionResult.categoryName}'`,
+  });
   res
     .status(200)
     .json(new ApiResponse(200, {}, "Category Deleted Successfully"));
@@ -263,7 +315,7 @@ const getItemAcquisitionStatsByCategory = asyncHandler(async (req, res) => {
     if (source === "Purchase")
       categorywiseItemAcquisitionStats.no_category_purchase_items = count;
     else if (source === "Donation")
-      categorywiseItemAcquisitionStats. no_category_donated_items= count;
+      categorywiseItemAcquisitionStats.no_category_donated_items = count;
   }
   return res
     .status(200)
@@ -271,7 +323,7 @@ const getItemAcquisitionStatsByCategory = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         categorywiseItemAcquisitionStats,
-       `Items Acquisition stats for a category with id ${category_id}fetched successfully`
+        `Items Acquisition stats for a category with id ${category_id}fetched successfully`
       )
     );
 });
@@ -283,5 +335,5 @@ export {
   deleteCategory,
   getAllCategoryData,
   getItemStatusStatsByCategory,
-  getItemAcquisitionStatsByCategory
+  getItemAcquisitionStatsByCategory,
 };
