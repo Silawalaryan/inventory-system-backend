@@ -1,7 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { SubCategory } from "../models/subCategory.model.js";
 import { Item } from "../models/item.model.js";
 import { resolveItemReferences } from "../utils/itemReferencesResolver.js";
 import { Category } from "../models/category.model.js";
@@ -25,6 +24,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     item_source,
     item_cost,
     item_status,
+    item_acquired_date,
     item_create_count,
   } = req.body;
   if (!req.isAdmin) {
@@ -40,6 +40,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     itemSource,
     itemCost,
     itemStatus,
+    itemAcquiredDate
   ] = trimValues([
     item_name,
     item_description,
@@ -50,16 +51,15 @@ const addNewItem = asyncHandler(async (req, res) => {
     item_source,
     item_cost,
     item_status,
+      item_acquired_date
   ]);
   const [itemFloor, itemRoom, itemCategory] = parseObjectId([
     itemFloorIdString,
     itemRoomIdString,
     itemCategoryIdString,
   ]);
-  const category = await Category.findById(itemCategory).select(
-    "categoryAbbreviation lastItemSerialNumber"
-  );
-  const categoryAbbr = category.categoryAbbreviaton;
+  const category = await Category.findById(itemCategory)
+  const categoryAbbr = category.categoryAbbreviation;
   const idOffset = category.lastItemSerialNumber;
   const currentYear = new Date().getFullYear();
   const items = Array.from({ length: item_create_count || 1 }, (_, index) => {
@@ -74,6 +74,7 @@ const addNewItem = asyncHandler(async (req, res) => {
       itemSource,
       itemCost,
       itemStatus,
+      itemAcquiredDate,
       itemSerialNumber: `${currentYear}${categoryAbbr}${serial}`,
       createdBy: req.user._id,
     };
@@ -89,7 +90,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Items could not be added successfully");
   }
   await Item.populate(
-    insertedItems,
+    insertedItems,[
     {
       path: "itemRoom",
       select: "roomName",
@@ -97,7 +98,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     {
       path: "itemFloor",
       select: "floorName",
-    }
+    }]
   );
   const logs = insertedItems.map((item) => ({
     action: "added",
@@ -108,7 +109,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: {
-      room: { from: null, to: item.itemRoom, roomName },
+      room: { from: null, to: item.itemRoom.roomName },
       status: { from: null, to: item.itemStatus },
       floor: { from: null, to: item.itemFloor.floorName },
       isActive: { from: null, to: true },
@@ -128,14 +129,17 @@ const addNewItem = asyncHandler(async (req, res) => {
     );
 });
 const updateItemStatus = asyncHandler(async (req, res) => {
-  const { item_id } = req.params;
-  const [itemId] = parseObjectId([trimValues(item_id)]);
+  const {id} = req.params;
+  const [itemId] = parseObjectId(trimValues([id]));
   const { status } = req.body;
   const allowedStatus = ["Working", "Repairable", "Not working"];
   if (!allowedStatus.includes(status)) {
     throw new ApiError(403, "Bad request:Invalid status.");
   }
-  const itemInContention = await Item.findById(itemId).populate("itemRoom","roomName").populate("itemFloor","floorName").lean();
+  const itemInContention = await Item.findById(itemId)
+    .populate("itemRoom", "roomName")
+    .populate("itemFloor", "floorName")
+    .lean();
   if (!itemInContention) {
     throw new ApiError(404, "Item with provided id not found.");
   }
@@ -143,7 +147,7 @@ const updateItemStatus = asyncHandler(async (req, res) => {
     itemId,
     { itemStatus: status },
     { new: true }
-  ).populate("room", "name");
+  );
   if (!updatedItem) {
     throw new ApiError(500, "Item status updation unsuccessful.");
   }
@@ -151,13 +155,19 @@ const updateItemStatus = asyncHandler(async (req, res) => {
     action: "changed status",
     entityType: "Item",
     entityId: itemId,
-    entityName: item.itemName,
+    entityName: itemInContention.itemName,
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: {
-      room: { from: itemInContention.itemRoom.roomName, to: itemInContention.itemRoom.roomName },
-      floor: { from: itemInContention.itemFloor.floorName, to: itemInContention.itemFloor.floorName },
+      room: {
+        from: itemInContention.itemRoom.roomName,
+        to: itemInContention.itemRoom.roomName,
+      },
+      floor: {
+        from: itemInContention.itemFloor.floorName,
+        to: itemInContention.itemFloor.floorName,
+      },
       status: { from: itemInContention.itemStatus, to: updatedItem.itemStatus },
       isActive: { from: true, to: true },
     },
@@ -174,10 +184,13 @@ const updateItemStatus = asyncHandler(async (req, res) => {
     );
 });
 const softDeleteItem = asyncHandler(async (req, res) => {
-  const { item_id } = req.params;
-  const [itemId] = parseObjectId([trimValues(item_id)]);
-
-  const item = await Item.findById(itemId).populate("itemRoom","roomName").populate("itemFloor","floorName").lean();
+  const {id} = req.params;
+  const [itemId] = parseObjectId(trimValues([id]));
+console.log(itemId);
+  const item = await Item.findById(itemId)
+    .populate("itemRoom", "roomName")
+    .populate("itemFloor", "floorName")
+    .lean();
   if (!item) {
     throw new ApiError(404, "Item with the provided id not found.");
   }
@@ -185,7 +198,7 @@ const softDeleteItem = asyncHandler(async (req, res) => {
     itemId,
     { isActive: false },
     { new: true }
-  ).populate("room", "name");
+  );
   if (!deletedItem) {
     throw new ApiError(500, "Item deletion unsuccessful.");
   }
@@ -206,7 +219,7 @@ const softDeleteItem = asyncHandler(async (req, res) => {
     description: `${req.user.username}(${req.user.role}) removed item '${item.itemName}'`,
   });
   res
-    .status(20)
+    .status(200)
     .json(new ApiResponse(200, deletedItem, `Item deleted successfully`));
   //the name soft delete because we are not actually delete the entry from the database rather just manipulating the status.
 });
@@ -235,7 +248,10 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     item_make_or_model_no,
     item_source,
   ]);
-  const itemInContention = await Item.findById(itemId).populate("itemRoom","roomName").populate("itemFloor","floorName").lean();
+  const itemInContention = await Item.findById(itemId)
+    .populate("itemRoom", "roomName")
+    .populate("itemFloor", "floorName")
+    .lean();
   if (!itemInContention) {
     throw new ApiError(404, "Item with provided id not found.");
   }
@@ -277,9 +293,18 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: {
-      room: { from: itemInContention.itemRoom.roomName, to: itemInContention.itemRoom.roomName },
-      floor: { from: itemInContention.itemFloor.floorName, to: itemInContention.itemFloor.floorName },
-      status: { from: itemInContention.itemStatus, to:itemInContention.itemStatus },
+      room: {
+        from: itemInContention.itemRoom.roomName,
+        to: itemInContention.itemRoom.roomName,
+      },
+      floor: {
+        from: itemInContention.itemFloor.floorName,
+        to: itemInContention.itemFloor.floorName,
+      },
+      status: {
+        from: itemInContention.itemStatus,
+        to: itemInContention.itemStatus,
+      },
       isActive: { from: true, to: true },
     },
     description: `${req.user.username}(${req.user.role}) edited details of item '${itemInContention.itemName}'`,
@@ -546,13 +571,18 @@ const moveItemBetweenRooms = asyncHandler(async (req, res) => {
 
   const { new_room_id } = req.body;
   const [itemId, newRoomId] = parseObjectId(trimValues(item_id, new_room_id));
-  const item = await Item.findById(itemId).populate("itemRoom", "roomName").populate("itemFloor","floorName").lean();
+  const item = await Item.findById(itemId)
+    .populate("itemRoom", "roomName")
+    .populate("itemFloor", "floorName")
+    .lean();
   const oldRoomName = item.itemRoom.roomName;
   const oldRoomId = item.itemRoom._id;
   if (!item) {
     throw new ApiError(404, "Item not found.");
   }
-  const newRoom = await Room.findById(newRoomId).populate("floor","floorName").lean();
+  const newRoom = await Room.findById(newRoomId)
+    .populate("floor", "floorName")
+    .lean();
   if (!newRoom) {
     throw new ApiError(404, "New room not found.");
   }
@@ -1186,7 +1216,6 @@ export {
   getItemLogs,
   getOverallItemLogs,
   getOverallRoomsDetails,
-  showAllItems,
   displayAllItems,
   itemSearchByItemName,
   itemSearchByItemSerialNumber,

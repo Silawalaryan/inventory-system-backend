@@ -20,7 +20,7 @@ const createAdminIfItDoesntExist = async () => {
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
       username: ADMIN_USERNAME,
-      role: "admin",
+      role: "Admin",
       phone_number:ADMIN_PHONE
     });
   }

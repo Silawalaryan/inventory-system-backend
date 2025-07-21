@@ -5,7 +5,8 @@ const parseObjectId = (idArray = [])=> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new ApiError(400, `Invalid ObjectId: ${id}`);
     }
-    return mongoose.Types.ObjectId(id);
+    return new mongoose.Types.ObjectId(id);//though use of new deprecates ObjectId, without new we get error
+    //Class constructor Objectid cannot be invoked without "new"
   });
 }
 export {parseObjectId}

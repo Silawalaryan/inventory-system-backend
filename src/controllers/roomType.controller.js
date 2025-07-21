@@ -42,7 +42,7 @@ const addRoomType = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, roomType, "Room type registered successfully"));
 });
 const getAllRoomTypes = asyncHandler(async (req, res) => {
-  const roomTypes = await RoomType.find().select("roomTypeName");
+  const roomTypes = await RoomType.find({isActive:true}).select("roomTypeName");
   if (roomTypes.length === 0) {
     throw new ApiError(404, "Room types not found");
   }
@@ -54,7 +54,7 @@ const getAllRoomTypes = asyncHandler(async (req, res) => {
 });
 const updateRoomType = asyncHandler(async (req, res) => {
   const { roomTypeName } = req.body;
-  const [roomTypeId] = parseObjectId([trimValues(req.params.id)]);
+  const [roomTypeId] = parseObjectId(trimValues([req.params.id]));
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can update room type.");
   }
@@ -103,7 +103,13 @@ const deleteRoomType = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can delete room type.");
   }
-  const [roomTypeId] = parseObjectId([trimValues(req.params.id)]);
+  const [roomTypeId] = parseObjectId(trimValues([req.params.id]));
+  const roomTypeInContention = await RoomType.findById(
+roomTypeId
+  )
+  if(!roomTypeInContention.isActive){
+    throw new ApiError(400,"Room type has already been removed.");
+  }
   const roomType = await RoomType.findByIdAndUpdate(
     roomTypeId,
     { isActive: false },

@@ -6,6 +6,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { PAGINATION_LIMIT } from "../constants.js";
 import { addActivityLog } from "../utils/addActivityLog.js";
+import { parseObjectId } from "../utils/parseObjectId.js";
+import { trimValues } from "../utils/trimmer.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -61,55 +63,18 @@ const registerUser = asyncHandler(async (req, res) => {
   }
   const createdUser = await User.findById(user._id).select("-password");
   await addActivityLog({
-    action:"created",
-    entityType:"User",
-    entityId:user._id,
-    entityName:user.username,
-    performedBy:req.user._id,
-    performedByName:req.user.username,
-    performedByRole:req.user.role,
-    description:`${req.user.username}(${req.user.role}) created a user '${user.username}'`
-  })
+    action: "created",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.username,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    description: `${req.user.username}(${req.user.role}) created a user '${user.username}'`,
+  });
   res
     .status(201)
     .json(new ApiResponse(201, createdUser, "User registered successfully"));
-});
-//getPendingUsers is to be seen thoroughly once again for the use of sockets and create a real time dashboard
-// right now its just a simple rest controller which is fired when a particular endpoint is hit
-const getPendingUsers = async (req, res) => {
-  const pendingUsers = await User.find({ status: "pending" }).select(
-    "-password"
-  );
-  res
-    .status(201)
-    .json(
-      new ApiResponse(201, pendingUsers, "Pending Users fetched successfuly.")
-    );
-};
-const approveUserRegistration = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const { isApproved } = req.body;
-  const updateStatusDetails = isApproved
-    ? {
-        status: "approved",
-        approvedAt: new Date(),
-        decidedBy: req.user._id,
-      }
-    : {
-        status: "rejected",
-        rejectedAt: new Date(),
-        decidedBy: req.user._id,
-      };
-  const updatedUser = await User.findByIdAndUpdate(
-    userId,
-    updateStatusDetails,
-    { new: true }
-  ).select("-password");
-  res
-    .status(201)
-    .json(
-      new ApiResponse(201, updatedUser, "User with updated status credentials")
-    );
 });
 const loginUser = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
@@ -131,16 +96,16 @@ const loginUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
   };
-   await addActivityLog({
-    action:"logged in",
-    entityType:"User",
-    entityId:user._id,
-    entityName:user.username,
-    performedBy:user._id,
-    performedByName:user.username,
-    performedByRole:user.role,
-    description:`${user.username}(${user.role}) logged in`
-  })
+  await addActivityLog({
+    action: "logged in",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.username,
+    performedBy: user._id,
+    performedByName: user.username,
+    performedByRole: user.role,
+    description: `${user.username}(${user.role}) logged in`,
+  });
   return res
     .status(201)
     .cookie("accessToken", accessToken, options)
@@ -167,16 +132,16 @@ const logoutUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
   };
-   await addActivityLog({
-    action:"logged out",
-    entityType:"User",
-    entityId:user._id,
-    entityName:user.username,
-    performedBy:user._id,
-    performedByName:user.username,
-    performedByRole:user.role,
-    description:`${user.username}(${user.role}) logged out`
-  })
+  await addActivityLog({
+    action: "logged out",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.username,
+    performedBy: user._id,
+    performedByName: user.username,
+    performedByRole: user.role,
+    description: `${user.username}(${user.role}) logged out`,
+  });
   return res
     .status(201)
     .clearCookie("accessToken", options)
@@ -201,16 +166,19 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   }
   user.password = new_password;
   await user.save({ validateBeforeSave: false });
-   await addActivityLog({
-    action:"changed password",
-    entityType:"User",
-    entityId:user._id,
-    entityName:user.username,
-    performedBy:user._id,
-    performedByName:user.username,
-    performedByRole:user.role,
-    description:`${user.username}(${user.role}) changed login credentials`
-  })
+  await addActivityLog({
+    action: "changed password",
+    entityType: "User",
+    entityId: user._id,
+    entityName: user.username,
+    performedBy: user._id,
+    performedByName: user.username,
+    performedByRole: user.role,
+    changes: {
+      password: { from: current_password, to: new_password },
+    },
+    description: `${user.username}(${user.role}) changed login credentials`,
+  });
   return res
     .status(201)
     .json(new ApiResponse(201, {}, "Password changed Successfully."));
@@ -218,6 +186,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 const editProfileDetails = asyncHandler(async (req, res) => {
   const { email, phone_number } = req.body;
   const query = {};
+  const changesForActivityLog = {};
   if (!(email || phone_number)) {
     throw new ApiError(
       401,
@@ -229,6 +198,7 @@ const editProfileDetails = asyncHandler(async (req, res) => {
     if (existing) {
       throw new ApiError(409, "Email already in use.");
     }
+    changesForActivityLog.email = { from: req.user.email, to: email };
     query.email = email;
   }
   if (phone_number) {
@@ -239,6 +209,10 @@ const editProfileDetails = asyncHandler(async (req, res) => {
     if (existing) {
       throw new ApiError(409, "Phone number already in use.");
     }
+    changesForActivityLog.phone_number = {
+      from: req.user.phone_number,
+      to: phone_number,
+    };
     query.phone_number = phone_number;
   }
   const updatedUser = await User.findByIdAndUpdate(req.user._id, query, {
@@ -247,43 +221,49 @@ const editProfileDetails = asyncHandler(async (req, res) => {
   if (!updatedUser) {
     throw new ApiError(403, "Editing profile details unsuccessful");
   }
-   await addActivityLog({
-    action:"edited profile details",
-    entityType:"User",
-    entityId:req.user._id,
-    entityName:req.user.username,
-    performedBy:req.user._id,
-    performedByName:req.user.username,
-    performedByRole:req.user.role,
-    description:`${req.user.username}(${req.user.role}) edited profile details`
-  })
+  await addActivityLog({
+    action: "edited profile details",
+    entityType: "User",
+    entityId: req.user._id,
+    entityName: req.user.username,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: changesForActivityLog,
+    description: `${req.user.username}(${req.user.role}) edited profile details`,
+  });
   return res
     .status(201)
     .json(new ApiResponse(200, updatedUser, "Profile editing successful."));
 });
 const deleteUser = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const { id } = req.params;
+  const [userId] = parseObjectId(trimValues([id]));
   if (!req.isAdmin) {
     throw new ApiError(403, "Only admins can delete an user");
+  }
+  const userInContention = await User.findById(userId);
+  if (!userInContention.isActive) {
+    throw new ApiError(400, "User has already been removed.");
   }
   const deletedUser = await User.findByIdAndUpdate(
     userId,
     { isActive: false },
     { new: true }
-  ).select("_id isActive");
+  ).select("_id username isActive");
   if (!deletedUser) {
     throw new ApiError(404, "User deletion unsuccessful");
   }
-   await addActivityLog({
-    action:"removed",
-    entityType:"User",
-    entityId:deletedUser._id,
-    entityName:deletedUser.username,
-    performedBy:req.user._id,
-    performedByName:req.user.username,
-    performedByRole:req.user.role,
-    description:`${req.user.username}(${req.user.role}) removed user '${deletedUser.username}'`
-  })
+  await addActivityLog({
+    action: "removed",
+    entityType: "User",
+    entityId: deletedUser._id,
+    entityName: deletedUser.username,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    description: `${req.user.username}(${req.user.role}) removed user '${deletedUser.username}'`,
+  });
   return res
     .status(200)
     .json(new ApiResponse(200, deletedUser, "User deleted successfully."));
@@ -291,12 +271,12 @@ const deleteUser = asyncHandler(async (req, res) => {
 const getActiveUsers = asyncHandler(async (req, res) => {
   const { username } = req.params;
   let { page } = req.params;
-  page = parseInt(page, 10) || 1;//defaults to 1 in case of falsy values
+  page = parseInt(page, 10) || 1; //defaults to 1 in case of falsy values
   const skip = (page - 1) * PAGINATION_LIMIT;
   if (!req.isAdmin) {
     throw new ApiError(403, "Only admin can search for users.");
   }
-    const filter = { isActive: true };
+  const filter = { isActive: true };
   if (username) {
     const searchRegex = new RegExp(username, "i"); //i flag for case insensitive flag match
     filter.username = { $regex: searchRegex };
@@ -321,21 +301,22 @@ const getActiveUsers = asyncHandler(async (req, res) => {
       )
     );
 });
-const getCurrentUser = asyncHandler(async(req,res)=>{
+const getCurrentUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id).select("username email role");
-  if(!user){
-    throw new ApiError(404,"User not found");
+  if (!user) {
+    throw new ApiError(404, "User not found");
   }
-  return res.status(201).json(new ApiResponse(201,user,"Current user fetched successfully"));
-})
+  return res
+    .status(201)
+    .json(new ApiResponse(201, user, "Current user fetched successfully"));
+});
 export {
   registerUser,
-  getPendingUsers,
-  approveUserRegistration,
   loginUser,
   logoutUser,
   changeCurrentPassword,
   editProfileDetails,
   deleteUser,
-  getActiveUsers,getCurrentUser
+  getActiveUsers,
+  getCurrentUser,
 };

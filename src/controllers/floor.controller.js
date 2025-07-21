@@ -33,7 +33,7 @@ const addNewFloor = asyncHandler(async (req, res) => {
 });
 
 const displayAllFloors = asyncHandler(async (req, res) => {
-  const floors = await Floor.find().select("floorName");
+  const floors = await Floor.find({isActive:true}).select("floorName");
   if (floors.length === 0) {
     throw new ApiError(404, "Floors not found");
   }
@@ -49,7 +49,7 @@ const updateFloor = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only admins can update floor details");
   }
   const floorInContention = await Floor.findById(floorId);
-  if(!currentFloor){
+  if(!floorInContention){
     throw new ApiError(404,"Floor with the given id not found.");
   }
   const existing = await Floor.findOne({
@@ -86,11 +86,17 @@ const updateFloor = asyncHandler(async (req, res) => {
 });
 
 const deleteFloor = asyncHandler(async (req, res) => {
+  const {id} = req.params;
+  const[floorId] = parseObjectId(trimValues([id]));
   if (!req.isAdmin) {
     throw new ApiError(403, "Only admin can delete floors");
   }
+  const floorInContention = await Floor.findById(floorId);
+  if(!floorInContention.isActive){
+    throw new ApiError(400,"Floor has been removed already");
+  }
   const deletionResult = await Floor.findByIdAndUpdate(
-    req.params.id,
+    floorId,
     {
       isActive: false,
     },

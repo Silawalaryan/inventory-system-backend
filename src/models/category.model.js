@@ -17,7 +17,8 @@ const categorySchema = new Schema(
       ref:"User",
     },
     lastItemSerialNumber:{
-      type:Number
+      type:Number,
+    default:0,
     }
   },
   { timestamps: true }
