@@ -61,6 +61,6 @@ const itemSchema = new Schema(
 );
 itemSchema.index({ updatedAt: -1 });
 itemSchema.index({ itemSerialNumber:1  });
-itemSchema.index({ itemSerialNumber: "text" });
+
 
 export const Item = mongoose.model("Item", itemSchema);

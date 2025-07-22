@@ -312,7 +312,7 @@ const getRoomSearchResults = asyncHandler(async (req, res) => {
     { allottedTo: { $regex: room_string, $options: "i" } },
   ],
   };
-  console.log(filter);
+
   const response = await roomsDataFetcher(filter,skip);
   return res
     .status(200)

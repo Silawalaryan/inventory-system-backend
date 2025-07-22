@@ -28,4 +28,6 @@ import roomRouter from "./routes/room.routes.js";
 app.use("/api/v1/rooms",roomRouter);
 import itemRouter from "./routes/item.routes.js";
 app.use("/api/v1/items",itemRouter);
+import inventoryRouter from "./routes/inventory.routes.js";
+app.use("/api/v1/inventory",inventoryRouter);
 export { app };
