@@ -20,7 +20,7 @@ router.route("/logout").post(verifyJwt, logoutUser);
 router.route("/change-password").patch(verifyJwt, changeCurrentPassword);
 router.route("/edit-profile").patch(verifyJwt, editProfileDetails);
 router.route("/:id").delete(verifyJwt, verifyAdmin, deleteUser);
-router.route("/:page").get(verifyJwt, verifyAdmin, getActiveUsers);
+router.route("/active/:page").get(verifyJwt, verifyAdmin, getActiveUsers);
 router
   .route("/:username/:page")
   .get(verifyJwt, verifyAdmin, getActiveUsers);

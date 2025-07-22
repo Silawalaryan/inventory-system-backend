@@ -4,7 +4,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { Item } from "../models/item.model.js";
 import { Category } from "../models/category.model.js";
 import { Room } from "../models/room.model.js";
-import { ItemLog } from "../models/itemLog.model.js";
 import { PAGINATION_LIMIT } from "../constants.js";
 import { trimValues } from "../utils/trimmer.js";
 import { parseObjectId } from "../utils/parseObjectId.js";
