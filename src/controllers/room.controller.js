@@ -12,7 +12,7 @@ import { addActivityLog } from "../utils/addActivityLog.js";
 const roomsDataFetcher = async (filter = {}, skip) => {
   const totalRooms = await Room.countDocuments(filter);
   if (totalRooms === 0) {
-    throw new ApiError(404, "Rooms not found.");
+    return { totalRooms: 0, rooms: [] };
   }
   const matchingActiveRooms = await Room.aggregate([
     {
