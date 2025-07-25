@@ -77,7 +77,7 @@ const roomsDataFetcher = async (filter = {}, skip) => {
         roomFloorName: "$floor.floorName",
         roomTypeName: "$roomType.roomTypeName",
         creatorUsername: "$creator.username",
-        allottedTo:1,//is projected if defined for a document
+        allottedTo: 1, //is projected if defined for a document
         createdAt: 1,
         updatedAt: 1,
       },
@@ -285,7 +285,7 @@ const filterRoomsByFloor = asyncHandler(async (req, res) => {
     isActive: true,
     floor: floorId,
   };
-  const response = await roomsDataFetcher(filter,skip);
+  const response = await roomsDataFetcher(filter, skip);
   return res
     .status(200)
     .json(
@@ -294,6 +294,34 @@ const filterRoomsByFloor = asyncHandler(async (req, res) => {
         response,
         `Details of rooms belonging to floor with id ${floorId} fetched successfully`
       )
+    );
+});
+
+const getAllRoomsByFloor = asyncHandler(async (req, res) => {
+  const { floor_id } = req.params;
+  const [floorId] = parseObjectId(trimValues([floor_id]));
+  const filter = {
+    isActive: true,
+    floor: floorId,
+  };
+  const totalRooms = await Room.countDocuments(filter);
+  if (totalRooms === 0) {
+    return res
+      .status(404)
+      .json(
+        new ApiResponse(
+          404,
+          { totalRooms: 0, rooms: [] },
+          "Valid Rooms not found"
+        )
+      );
+  }
+  const rooms = await Room.find(filter).select("roomName");
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { totalRooms, rooms }),
+      `Rooms of floor with id '${floor_id}' fetched successfully.`
     );
 });
 const getRoomSearchResults = asyncHandler(async (req, res) => {
@@ -307,13 +335,13 @@ const getRoomSearchResults = asyncHandler(async (req, res) => {
   const filter = {
     isActive: true,
     //$text: { $search: room_string }, //default case-insensitive search
-     $or: [
-    { roomName: { $regex: room_string, $options: "i" } },
-    { allottedTo: { $regex: room_string, $options: "i" } },
-  ],
+    $or: [
+      { roomName: { $regex: room_string, $options: "i" } },
+      { allottedTo: { $regex: room_string, $options: "i" } },
+    ],
   };
 
-  const response = await roomsDataFetcher(filter,skip);
+  const response = await roomsDataFetcher(filter, skip);
   return res
     .status(200)
     .json(
@@ -332,4 +360,5 @@ export {
   deleteRoom,
   filterRoomsByFloor,
   getRoomSearchResults,
+  getAllRoomsByFloor,
 };

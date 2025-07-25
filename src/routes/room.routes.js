@@ -6,6 +6,7 @@ import {
   deleteRoom,
   filterRoomsByFloor,
   getRoomSearchResults,
+  getAllRoomsByFloor,
 } from "../controllers/room.controller.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { verifyAdmin } from "../middlewares/admin_check.middleware.js";
@@ -20,5 +21,6 @@ router
   .route("/floor-filter/:floor_id/:page")
   .get(verifyJwt, filterRoomsByFloor);
 router.route("/search/:room_string/:page").get(verifyJwt, getRoomSearchResults);
+router.route("/floor-filter/:floor_id").get(verifyJwt,getAllRoomsByFloor);
 
 export default router;
