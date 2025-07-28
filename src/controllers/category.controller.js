@@ -210,7 +210,7 @@ const getAllCategoryData = asyncHandler(async (req, res) => {
         $lookup: {
           from: "items",
           localField: "_id",
-          foreignField: "category",
+          foreignField: "itemCategory",
           as: "items",
         },
       },
