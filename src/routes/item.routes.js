@@ -29,7 +29,7 @@ router.route("/filter/:page").get(verifyJwt, filterItems);
 router.route("/:id/history").get(verifyJwt, getItemLogs);
 router.route("/all/:page").get(verifyJwt, displayAllItems);
 router.route("/search/:item_string/:page").get(verifyJwt, getItemSearchResults);
-router.route("/:id").get(verifyJwt, getSpecificItem);
+router.route("/item/:id").get(verifyJwt, getSpecificItem);
 router.route("/:id/similar_items").get(verifyJwt, getSimilarItemsStats);
 router.route("/item_source").get(verifyJwt, getItemSource);
 
