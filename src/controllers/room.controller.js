@@ -18,6 +18,9 @@ const roomsDataFetcher = async (filter = {}, skip) => {
     {
       $match: filter,
     },
+    {
+      $sort: { updatedAt: -1 },
+    },
     { $skip: skip },
     {
       $limit: PAGINATION_LIMIT,
@@ -129,7 +132,7 @@ const addNewRoom = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `${req.user.username}(${req.user.role}) added a room '${room.roomName}'`,
+    description: `Added a room '${room.roomName}'`,
   });
   res.status(201).json(new ApiResponse(201, room, "Room added successfully."));
 });
@@ -238,7 +241,7 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: changesForActivityLog,
-    description: `${req.user.username}(${req.user.role}) edited details of room '${roomInContention.roomName}'`,
+    description: `Edited details of room '${roomInContention.roomName}'`,
   });
   res
     .status(200)
@@ -271,7 +274,7 @@ const deleteRoom = asyncHandler(async (req, res) => {
     changes: {
       isActive: { from: true, to: false },
     },
-    description: `${req.user.username}(${req.user.role}) removed room '${deletionResult.roomName}'`,
+    description: `Removed room '${deletionResult.roomName}'`,
   });
   res.status(200).json(new ApiResponse(200, {}, "Room deleted successfully"));
 });
@@ -307,21 +310,18 @@ const getAllRoomsByFloor = asyncHandler(async (req, res) => {
   const totalRooms = await Room.countDocuments(filter);
   if (totalRooms === 0) {
     return res
-      .status(404)
-      .json(
-        new ApiResponse(
-          404,
-          { totalRooms: 0, rooms: [] },
-          "Valid Rooms not found"
-        )
-      );
+      .status(200)
+      .json(new ApiResponse(200, [], "Valid Rooms not found"));
   }
   const rooms = await Room.find(filter).select("roomName");
   return res
     .status(200)
     .json(
-      new ApiResponse(200, { totalRooms, rooms }),
-      `Rooms of floor with id '${floor_id}' fetched successfully.`
+      new ApiResponse(
+        200,
+        rooms,
+        `Rooms of floor with id '${floor_id}' fetched successfully.`
+      )
     );
 });
 const getRoomSearchResults = asyncHandler(async (req, res) => {
@@ -352,7 +352,121 @@ const getRoomSearchResults = asyncHandler(async (req, res) => {
       )
     );
 });
-
+const getItemStatusStatsByRoom = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const [roomId] = parseObjectId(trimValues([id]));
+  const itemStatusStatsByRoom = await Item.aggregate([
+    {
+      $match: {
+        itemRoom: roomId,
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        noWorkingItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Working"] }, 1, 0],
+          },
+        },
+        noRepairableItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Repairable"] }, 1, 0],
+          },
+        },
+        noNotWorkingItems: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Not working"] }, 1, 0],
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        noTotalItems: {
+          $add: ["$noWorkingItems", "$noRepairableItems", "$noNotWorkingItems"],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        noWorkingItems: 1,
+        noRepairableItems: 1,
+        noNotWorkingItems: 1,
+        noTotalItems: 1,
+      },
+    },
+  ]);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        itemStatusStatsByRoom[0],
+        `Item Status Stats of room with id ${id} fetched successfully.`
+      )
+    );
+});
+const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const [roomId] = parseObjectId(trimValues([id]));
+  const overallItemsDetails = await Item.aggregate([
+    {
+      $match: {
+        itemRoom: roomId,
+      },
+    },
+    {
+      $group: {
+        _id: "$itemName",
+        workingCount: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Working"] }, 1, 0],
+          },
+        },
+        repairableCount: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Repairable"] }, 1, 0],
+          },
+        },
+        notWorkingCount: {
+          $sum: {
+            $cond: [{ $eq: ["$itemStatus", "Not working"] }, 1, 0],
+          },
+        },
+      },
+      itemModel: { $first: "$itemModelNumberOrMake" },
+    },
+    {
+      $addFields: {
+        totalCount: {
+          $add: ["$workingCount", "$repairableCount", "$notWorkingCount"],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        itemName: "$_id",
+        itemModel: 1,
+        workingCount: 1,
+        repairableCount: 1,
+        notWorkingCount: 1,
+        totalCount: 1,
+      },
+    },
+  ]);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        overallItemsDetails,
+        `Details of all items in the room with id ${id} fetched successfully.`
+      )
+    );
+});
 export {
   addNewRoom,
   displayAllRooms,
@@ -361,4 +475,7 @@ export {
   filterRoomsByFloor,
   getRoomSearchResults,
   getAllRoomsByFloor,
+  getItemStatusStatsByRoom,
+  getItemStatusStatsByRoom,
+  getOverallItemsDetailsByRoom
 };

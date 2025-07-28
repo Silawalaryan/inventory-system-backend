@@ -9,6 +9,8 @@ import { trimValues } from "../utils/trimmer.js";
 import { parseObjectId } from "../utils/parseObjectId.js";
 import { ActivityLog } from "../models/activityLog.model.js";
 import { addActivityLog } from "../utils/addActivityLog.js";
+import { getSourceNameById } from "../utils/sourceNameResolver.js";
+import { itemSource } from "../constants.js";
 
 const itemsDataFetcher = async (filter = {}, skip) => {
   const totalItems = await Item.countDocuments(filter);
@@ -38,6 +40,17 @@ const itemsDataFetcher = async (filter = {}, skip) => {
     },
     {
       $unwind: "$floor",
+    },
+    {
+      $lookup: {
+        from: "categories",
+        localField: "itemCategory",
+        foreignField: "_id",
+        as: "category",
+      },
+    },
+    {
+      $unwind: "$category",
     },
     {
       $lookup: {
@@ -74,6 +87,7 @@ const itemsDataFetcher = async (filter = {}, skip) => {
         itemDescription: 1,
         itemFloor: "$floor.floorName",
         itemRoom: "$room.roomName",
+        itemCategory: "$category.categoryName",
         createdBy: "$creator.username",
         createdAt: 1,
         updatedAt: 1,
@@ -127,6 +141,10 @@ const addNewItem = asyncHandler(async (req, res) => {
     itemRoomIdString,
     itemCategoryIdString,
   ]);
+  const sourceName = getSourceNameById(itemSource);
+  if (!sourceName) {
+    throw new ApiError(404, "Valid item source not found.");
+  }
   const category = await Category.findById(itemCategory);
   const categoryAbbr = category.categoryAbbreviation;
   const idOffset = category.lastItemSerialNumber;
@@ -140,7 +158,7 @@ const addNewItem = asyncHandler(async (req, res) => {
       itemModelNumberOrMake,
       itemFloor,
       itemRoom,
-      itemSource,
+      itemSource: sourceName,
       itemCost,
       itemStatus,
       itemAcquiredDate,
@@ -182,7 +200,7 @@ const addNewItem = asyncHandler(async (req, res) => {
       floor: { from: null, to: item.itemFloor.floorName },
       isActive: { from: null, to: true },
     },
-    description: `${req.user.username}(${req.user.role}) added an item '${item.itemName}' to room '${item.itemRoom.roomName}'`,
+    description: `Added an item '${item.itemName}' to room '${item.itemRoom.roomName}'`,
   }));
 
   await ActivityLog.insertMany(logs); // Efficient batch insert
@@ -194,6 +212,13 @@ const addNewItem = asyncHandler(async (req, res) => {
         insertedItems,
         `${insertedItems.length} items added successfully`
       )
+    );
+});
+const getItemSource = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, itemSource, "Item Sources fetched successfully")
     );
 });
 const updateItemStatus = asyncHandler(async (req, res) => {
@@ -239,7 +264,7 @@ const updateItemStatus = asyncHandler(async (req, res) => {
       status: { from: itemInContention.itemStatus, to: updatedItem.itemStatus },
       isActive: { from: true, to: true },
     },
-    description: `${req.user.username}(${req.user.role}) changed status of item '${itemInContention.itemName}' to '${updatedItem.itemStatus}'`,
+    description: `Changed status of item '${itemInContention.itemName}' to '${updatedItem.itemStatus}'`,
   });
   res
     .status(200)
@@ -284,7 +309,7 @@ const softDeleteItem = asyncHandler(async (req, res) => {
       status: { from: item.itemStatus, to: item.itemStatus },
       isActive: { from: true, to: false },
     },
-    description: `${req.user.username}(${req.user.role}) removed item '${item.itemName}'`,
+    description: `Removed item '${item.itemName}'`,
   });
   res
     .status(200)
@@ -395,7 +420,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
         to: updatedItem.itemSerialNumber,
       },
     },
-    description: `${req.user.username}(${req.user.role}) edited details of item '${itemInContention.itemName}'`,
+    description: `Edited details of item '${itemInContention.itemName}'`,
   });
   return res
     .status(200)
@@ -495,7 +520,7 @@ const getInventoryItemStats = asyncHandler(async (req, res) => {
 
   const result = await Item.aggregate([
     {
-      $match:{isActive:true}
+      $match: { isActive: true },
     },
     {
       $facet: {
@@ -727,7 +752,7 @@ const displayAllItems = asyncHandler(async (req, res) => {
       new ApiResponse(200, response, "All items data fetched successfully")
     );
 });
-const itemSearchByItemName = asyncHandler(async (req, res) => {
+const getItemSearchResults = asyncHandler(async (req, res) => {
   const { item_string } = req.params;
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
@@ -735,7 +760,10 @@ const itemSearchByItemName = asyncHandler(async (req, res) => {
   const [itemString] = trimValues([item_string]);
   const filter = {
     isActive: true,
-    itemName: { $regex: item_string, $options: "i" },
+    $or: [
+      { itemName: { $regex: item_string, $options: "i" } },
+      { itemSerialNumber: { $regex: item_string, $options: "i" } },
+    ],
   };
   const response = await itemsDataFetcher(filter, skip);
   return res
@@ -745,27 +773,6 @@ const itemSearchByItemName = asyncHandler(async (req, res) => {
         200,
         response,
         `All items matching ${itemString} in their names fetched successfully`
-      )
-    );
-});
-const itemSearchByItemSerialNumber = asyncHandler(async (req, res) => {
-  const { item_string } = req.params;
-  let { page } = req.params;
-  page = parseInt(page, 10) || 1;
-  const skip = (page - 1) * PAGINATION_LIMIT;
-  const [itemString] = trimValues([item_string]);
-  const filter = {
-    isActive: true,
-    itemSerialNumber: { $regex: "^" + itemString, $options: "i" },
-  };
-  const response = await itemsDataFetcher(filter, skip);
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        response,
-        `All items matching ${itemString} in their serial number fetched successfully`
       )
     );
 });
@@ -846,14 +853,14 @@ const getSpecificItem = asyncHandler(async (req, res) => {
 });
 //in this functionality we are trying to group together the items having same name,category and model
 //along with that we are going to fetch the reports of those items with their number in each of the status
-const multipleItemsDataFetcher = async(filter={},skip)=>{
+const multipleItemsDataFetcher = async (filter = {}, skip) => {
   const totalItems = await Item.countDocuments(filter);
-  if(totalItems === 0){
-    throw new ApiError(404,"Items not found")
+  if (totalItems === 0) {
+    throw new ApiError(404, "Items not found");
   }
   const matchingItemsStatusReport = await Item.aggregate([
     {
-      $match:filter,
+      $match: filter,
     },
     {
       $group: {
@@ -887,25 +894,25 @@ const multipleItemsDataFetcher = async(filter={},skip)=>{
       },
     },
     {
-    $lookup: {
-      from: "categories",
-      localField: "_id.itemCategory",
-      foreignField: "_id",
-      as: "category",
+      $lookup: {
+        from: "categories",
+        localField: "_id.itemCategory",
+        foreignField: "_id",
+        as: "category",
+      },
     },
-  },
-  {
-    $unwind: {
-      path: "$category",
-      preserveNullAndEmptyArrays: true,
+    {
+      $unwind: {
+        path: "$category",
+        preserveNullAndEmptyArrays: true,
+      },
     },
-  },
     {
       $project: {
         _id: 0,
         itemName: "$_id.itemName",
         itemCategory: "$_id.itemCategory",
-        itemCategoryName:"$category.categoryName",
+        itemCategoryName: "$category.categoryName",
         itemModel: "$_id.itemModel",
         noWorkingItems: 1,
         noRepairableItems: 1,
@@ -923,16 +930,16 @@ const multipleItemsDataFetcher = async(filter={},skip)=>{
       $limit: PAGINATION_LIMIT,
     },
   ]);
-  return{totalItems,itemData:matchingItemsStatusReport}
-}
+  return { totalItems, itemData: matchingItemsStatusReport };
+};
 const getMultipleItems = asyncHandler(async (req, res) => {
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const filter= {
-    isActive:true
-  }
-  const response = await multipleItemsDataFetcher(filter,skip);
+  const filter = {
+    isActive: true,
+  };
+  const response = await multipleItemsDataFetcher(filter, skip);
   return res
     .status(200)
     .json(
@@ -953,7 +960,7 @@ const filterMultipleItems = asyncHandler(async (req, res) => {
     isActive: true,
     itemCategory: categoryId,
   };
-  const response = await multipleItemsDataFetcher(filter,skip);
+  const response = await multipleItemsDataFetcher(filter, skip);
   return res
     .status(200)
     .json(
@@ -975,10 +982,10 @@ export {
   getItemLogs,
   getOverallRoomsDetails,
   displayAllItems,
-  itemSearchByItemName,
-  itemSearchByItemSerialNumber,
+  getItemSearchResults,
   getSpecificItem,
   updateItemDetails,
   getMultipleItems,
   filterMultipleItems,
+  getItemSource,
 };

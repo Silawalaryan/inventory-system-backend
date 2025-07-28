@@ -7,6 +7,8 @@ import {
   filterRoomsByFloor,
   getRoomSearchResults,
   getAllRoomsByFloor,
+  getItemStatusStatsByRoom,
+  getOverallItemsDetailsByRoom,
 } from "../controllers/room.controller.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { verifyAdmin } from "../middlewares/admin_check.middleware.js";
@@ -21,6 +23,8 @@ router
   .route("/floor-filter/:floor_id/:page")
   .get(verifyJwt, filterRoomsByFloor);
 router.route("/search/:room_string/:page").get(verifyJwt, getRoomSearchResults);
-router.route("/floor-filter/:floor_id").get(verifyJwt,getAllRoomsByFloor);
+router.route("/floor-filter/:floor_id").get(verifyJwt, getAllRoomsByFloor);
+router.route("/:id/item-status-stats").get(verifyJwt, getItemStatusStatsByRoom);
+router.route("/:id/item-details").get(verifyJwt, getOverallItemsDetailsByRoom);
 
 export default router;

@@ -52,6 +52,9 @@ const itemSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    itemRemark:{
+      type:String
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

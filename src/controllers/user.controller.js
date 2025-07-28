@@ -70,7 +70,7 @@ const registerUser = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `${req.user.username}(${req.user.role}) created a user '${user.username}'`,
+    description: `Created a user '${user.username}'`,
   });
   res
     .status(201)
@@ -96,16 +96,16 @@ const loginUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
   };
-  await addActivityLog({
-    action: "logged in",
-    entityType: "User",
-    entityId: user._id,
-    entityName: user.username,
-    performedBy: user._id,
-    performedByName: user.username,
-    performedByRole: user.role,
-    description: `${user.username}(${user.role}) logged in`,
-  });
+  // await addActivityLog({
+  //   action: "logged in",
+  //   entityType: "User",
+  //   entityId: user._id,
+  //   entityName: user.username,
+  //   performedBy: user._id,
+  //   performedByName: user.username,
+  //   performedByRole: user.role,
+  //   description: `${user.username}(${user.role}) logged in`,
+  // });
   return res
     .status(201)
     .cookie("accessToken", accessToken, options)
@@ -177,7 +177,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     changes: {
       password: { from: current_password, to: new_password },
     },
-    description: `${user.username}(${user.role}) changed login credentials`,
+    description: `Changed login credentials`,
   });
   return res
     .status(201)
@@ -230,7 +230,7 @@ const editProfileDetails = asyncHandler(async (req, res) => {
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: changesForActivityLog,
-    description: `${req.user.username}(${req.user.role}) edited profile details`,
+    description: `Edited profile details`,
   });
   return res
     .status(201)
@@ -262,7 +262,7 @@ const deleteUser = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `${req.user.username}(${req.user.role}) removed user '${deletedUser.username}'`,
+    description: `Removed user '${deletedUser.username}'`,
   });
   return res
     .status(200)

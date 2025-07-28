@@ -17,7 +17,7 @@ router.route("/").post(verifyJwt,verifyAdmin,addNewCategory);
 router.route("/").get( verifyJwt,displayAllCategories);
 router.route("/:id").patch(verifyJwt,verifyAdmin,updateCategory);
 router.route("/:id").delete(verifyJwt,verifyAdmin,deleteCategory);
-router.route('/description').get(verifyJwt,getAllCategoryData);
+router.route('/description/:page').get(verifyJwt,getAllCategoryData);
 router.route("/:id/item-status-stats").get(verifyJwt,getItemStatusStatsByCategory);
 router.route("/:id/item-acquisition-stats").get(verifyJwt,getItemAcquisitionStatsByCategory);
 

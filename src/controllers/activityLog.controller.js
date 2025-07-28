@@ -51,7 +51,7 @@ const getRecentFiveLogs = asyncHandler(async (req, res) => {
     );
 });
 const filterLogs = asyncHandler(async (req, res) => {
-  const { starting_date, end_date } = req.body;
+  const { starting_date, end_date } = req.params;
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;

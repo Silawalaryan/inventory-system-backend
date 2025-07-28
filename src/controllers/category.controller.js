@@ -42,7 +42,7 @@ const addNewCategory = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `${req.user.username}(${req.user.role}) added a category '${category.categoryName}'`,
+    description: `Added a category '${category.categoryName}'`,
   });
   res
     .status(201)
@@ -129,7 +129,7 @@ const updateCategory = asyncHandler(async (req, res) => {
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: changesForActivityLog,
-    description: `${req.user.username}(${req.user.role}) edited details of category '${categoryInContention.categoryName}'`,
+    description: `Edited details of category '${categoryInContention.categoryName}'`,
   });
   res
     .status(200)
@@ -171,7 +171,7 @@ const deleteCategory = asyncHandler(async (req, res) => {
     changes: {
       isActive: { from: true, to: false },
     },
-    description: `${req.user.username}(${req.user.role}) removed category '${deletionResult.categoryName}'`,
+    description: `Removed category '${deletionResult.categoryName}'`,
   });
   res
     .status(200)
@@ -246,12 +246,12 @@ const getAllCategoryData = asyncHandler(async (req, res) => {
     );
 });
 const getItemStatusStatsByCategory = asyncHandler(async (req, res) => {
-  const {id} = req.params;
+  const { id } = req.params;
   const [categoryId] = parseObjectId(trimValues([id]));
   const itemsGroupedByStatusForParticularCategory = await Item.aggregate([
     {
       $match: {
-        category: categoryId,
+        itemCategory: categoryId,
       },
     },
     {
@@ -286,18 +286,21 @@ const getItemStatusStatsByCategory = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         categorywiseItemStatusStats,
-        `Items Status stats for a category with id ${id}fetched successfully`
+        `Items Status stats for a category with id ${id} fetched successfully`
       )
     );
 });
 const getItemAcquisitionStatsByCategory = asyncHandler(async (req, res) => {
-  const {id} = req.params;
-  const [categoryId] = parseObjectId(trimValues([id]));
+  const { id } = req.params;
+  let filter = {};
+  if (id && id !== "0") {
+    const [categoryId] = parseObjectId(trimValues([id]));
+    filter = { itemCategory: categoryId };
+  }
+
   const itemsGroupedByAcquisitionForParticularCategory = await Item.aggregate([
     {
-      $match: {
-        category: categoryId,
-      },
+      $match: filter,
     },
     {
       $group: {
@@ -328,7 +331,9 @@ const getItemAcquisitionStatsByCategory = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         categorywiseItemAcquisitionStats,
-        `Items Acquisition stats for a category with id ${id} fetched successfully`
+        id && id !== "0"
+          ? `Item acquisition stats for category with id ${id} fetched successfully.`
+          : "Item acquisition stats for all categories fetched successfully."
       )
     );
 });

@@ -35,7 +35,7 @@ const addRoomType = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `${req.user.username}(${req.user.role}) added a room-type '${roomType.roomTypeName}'`,
+    description: `Added a room-type '${roomType.roomTypeName}'`,
   });
   return res
     .status(201)
@@ -91,7 +91,7 @@ const updateRoomType = asyncHandler(async (req, res) => {
     changes: {
       name: { from: roomTypeInContention.roomTypeName, to: roomType.roomTypeName },
     },
-    description: `${req.user.username}(${req.user.role}) renamed room-type '${roomTypeInContention.roomTypeName}' to '${roomType.roomTypeName}'`,
+    description: `Renamed room-type '${roomTypeInContention.roomTypeName}' to '${roomType.roomTypeName}'`,
   });
   return res
     .status(201)
@@ -129,7 +129,7 @@ roomTypeId
     changes: {
       isActive: { from: true, to: false },
     },
-    description: `${req.user.username}(${req.user.role}) removed room-type '${roomType.roomTypeName}'`,
+    description: `Removed room-type '${roomType.roomTypeName}'`,
   });
   return res
     .status(200)

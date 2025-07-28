@@ -8,7 +8,7 @@ const router = Router();
 
 router.route("/logs/:page").get(verifyJwt,verifyAdmin,getOverallLogs);
 router.route("/recent_logs").get(verifyJwt,verifyAdmin,getRecentFiveLogs);
-router.route("/logs/filter/:page").get(verifyJwt,verifyAdmin,filterLogs);
+router.route("/logs/filter/:page/:starting_date/:end_date").get(verifyJwt,verifyAdmin,filterLogs);
 router.route("/stats").get(verifyJwt,getInventoryItemStats);
 
 export default router;

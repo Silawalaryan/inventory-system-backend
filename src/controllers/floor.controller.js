@@ -27,7 +27,7 @@ const addNewFloor = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `${req.user.username}(${req.user.role}) added a floor '${floor.floorName}'`,
+    description: `Added a floor '${floor.floorName}'`,
   });
   res.status(201).json(new ApiResponse(201, floor, "Floor added successfully"));
 });
@@ -78,7 +78,7 @@ const updateFloor = asyncHandler(async (req, res) => {
     changes: {
       name: { from: floorInContention.floorName, to: floor.floorName },
     },
-    description: `${req.user.username}(${req.user.role}) renamed '${floorInContention.floorName}' to '${floor.floorName}'`,
+    description: `Renamed '${floorInContention.floorName}' to '${floor.floorName}'`,
   });
   res
     .status(201)
@@ -116,7 +116,7 @@ const deleteFloor = asyncHandler(async (req, res) => {
     changes: {
       isActive: { from: true, to:false },
     },
-    description: `${req.user.username}(${req.user.role}) removed floor '${deletionResult.floorName}'`,
+    description: `Removed floor '${deletionResult.floorName}'`,
   });
   res.status(201).json(new ApiResponse(201, {}, "Floor Deleted Successfully"));
 });
