@@ -63,7 +63,7 @@ const itemSchema = new Schema(
   { timestamps: true }
 );
 itemSchema.index({ updatedAt: -1 });
-itemSchema.index({ itemSerialNumber:1  });
+
 
 
 export const Item = mongoose.model("Item", itemSchema);

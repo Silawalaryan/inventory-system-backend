@@ -63,7 +63,7 @@ const roomsDataFetcher = async (filter = {}, skip) => {
       $lookup: {
         from: "items",
         localField: "_id",
-        foreignField: "room",
+        foreignField: "itemRoom",
         as: "items",
       },
     },
@@ -436,8 +436,9 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
             $cond: [{ $eq: ["$itemStatus", "Not working"] }, 1, 0],
           },
         },
+        itemModel: { $first: "$itemModelNumberOrMake" },
+        itemDescription: { $first: "$itemDescription" },
       },
-      itemModel: { $first: "$itemModelNumberOrMake" },
     },
     {
       $addFields: {
@@ -455,6 +456,7 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
         repairableCount: 1,
         notWorkingCount: 1,
         totalCount: 1,
+        itemDescription:1
       },
     },
   ]);
@@ -477,5 +479,5 @@ export {
   getRoomSearchResults,
   getAllRoomsByFloor,
   getItemStatusStatsByRoom,
-  getOverallItemsDetailsByRoom
+  getOverallItemsDetailsByRoom,
 };
