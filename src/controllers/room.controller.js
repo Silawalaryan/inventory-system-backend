@@ -476,6 +476,5 @@ export {
   getRoomSearchResults,
   getAllRoomsByFloor,
   getItemStatusStatsByRoom,
-  getItemStatusStatsByRoom,
   getOverallItemsDetailsByRoom
 };
