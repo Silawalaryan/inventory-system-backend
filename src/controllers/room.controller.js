@@ -8,6 +8,7 @@ import { PAGINATION_LIMIT } from "../constants.js";
 import { trimValues } from "../utils/trimmer.js";
 import { parseObjectId } from "../utils/parseObjectId.js";
 import { addActivityLog } from "../utils/addActivityLog.js";
+import { Item } from "../models/item.model.js";
 
 const roomsDataFetcher = async (filter = {}, skip) => {
   const totalRooms = await Room.countDocuments(filter);
