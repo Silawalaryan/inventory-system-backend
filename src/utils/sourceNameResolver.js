@@ -2,6 +2,6 @@ import { itemSource } from "../constants.js";
 
 const getSourceNameById = (id) => {
   const sourceName = itemSource.find((source) => source.sourceId === id);
-  return source?.sourceName || null;
+  return sourceName?.sourceName || null;
 };
 export { getSourceNameById };

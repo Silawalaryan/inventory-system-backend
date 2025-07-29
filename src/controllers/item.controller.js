@@ -15,7 +15,7 @@ import { itemSource } from "../constants.js";
 const itemsDataFetcher = async (filter = {}, skip) => {
   const totalItems = await Item.countDocuments(filter);
   if (totalItems === 0) {
-    throw new ApiError(404, "Items not found");
+    return { totalItems: 0, items: [] };
   }
   const activeMatchingItems = await Item.aggregate([
     {

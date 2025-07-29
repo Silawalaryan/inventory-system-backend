@@ -286,10 +286,15 @@ const getActiveUsers = asyncHandler(async (req, res) => {
     .limit(PAGINATION_LIMIT);
   const totalUsers = await User.countDocuments(filter);
   if (users.length === 0) {
-    throw new ApiError(
-      404,
-      `${username ? "Matching users" : "Users"} not found`
-    );
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { totalUsers: 0, users: [] },
+          "Active users fetched successfully"
+        )
+      );
   }
   return res
     .status(201)

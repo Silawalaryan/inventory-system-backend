@@ -216,7 +216,15 @@ const getAllCategoryData = asyncHandler(async (req, res) => {
       },
       {
         $addFields: {
-          totalItems: { $size: "$items" },
+          totalItems: {
+            $size: {
+              $filter: {
+                input: "$items",
+                as: "item",
+                cond: { $eq: ["$$item.isActive", true] },
+              },
+            },
+          },
         },
       },
       {

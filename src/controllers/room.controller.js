@@ -70,7 +70,15 @@ const roomsDataFetcher = async (filter = {}, skip) => {
 
     {
       $addFields: {
-        totalItems: { $size: "$items" },
+        totalItems: {
+          $size: {
+            $filter: {
+              input: "$items",
+              as: "item",
+              cond: { $eq: ["$$item.isActive", true] },
+            },
+          },
+        },
       },
     },
     {
@@ -456,7 +464,7 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
         repairableCount: 1,
         notWorkingCount: 1,
         totalCount: 1,
-        itemDescription:1
+        itemDescription: 1,
       },
     },
   ]);
