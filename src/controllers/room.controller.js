@@ -311,16 +311,17 @@ const filterRoomsByFloor = asyncHandler(async (req, res) => {
 
 const getAllRoomsByFloor = asyncHandler(async (req, res) => {
   const { floor_id } = req.params;
-  const [floorId] = parseObjectId(trimValues([floor_id]));
   const filter = {
     isActive: true,
-    floor: floorId,
   };
+  if (floor_id && floor_id !== "0") {
+    const [floorId] = parseObjectId(trimValues([floor_id]));
+    filter.floor = floorId;
+  }
+
   const totalRooms = await Room.countDocuments(filter);
   if (totalRooms === 0) {
-    return res
-      .status(200)
-      .json(new ApiResponse(200, [], "Valid Rooms not found"));
+    return res.status(200).json(new ApiResponse(200, [], "Zero valid rooms."));
   }
   const rooms = await Room.find(filter).select("roomName");
   return res
@@ -329,7 +330,9 @@ const getAllRoomsByFloor = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         rooms,
-        `Rooms of floor with id '${floor_id}' fetched successfully.`
+        floor_id && floor_id !== "0"
+          ? `Rooms of floor with id '${floor_id}' fetched successfully.`
+          : "All rooms fetched successfully."
       )
     );
 });

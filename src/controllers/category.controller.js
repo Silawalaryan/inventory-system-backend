@@ -260,6 +260,7 @@ const getItemStatusStatsByCategory = asyncHandler(async (req, res) => {
     {
       $match: {
         itemCategory: categoryId,
+        isActive:true,
       },
     },
     {
@@ -300,10 +301,10 @@ const getItemStatusStatsByCategory = asyncHandler(async (req, res) => {
 });
 const getItemAcquisitionStatsByCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  let filter = {};
+  const filter = {isActive:true};
   if (id && id !== "0") {
     const [categoryId] = parseObjectId(trimValues([id]));
-    filter = { itemCategory: categoryId };
+    filter.itemCategory= categoryId ;
   }
 
   const itemsGroupedByAcquisitionForParticularCategory = await Item.aggregate([

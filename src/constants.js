@@ -7,3 +7,17 @@ export const itemSource = [
     sourceId: "2468",
   },
 ];
+export const itemStatus = [
+  {
+    statusName: "Working",
+    statusId: "1234",
+  },
+  {
+    statusName: "Repairable",
+    statusId: "3456",
+  },
+  {
+    statusName: "Not working",
+    statusId: "5678",
+  },
+];

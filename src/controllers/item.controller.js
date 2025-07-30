@@ -10,7 +10,10 @@ import { parseObjectId } from "../utils/parseObjectId.js";
 import { ActivityLog } from "../models/activityLog.model.js";
 import { addActivityLog } from "../utils/addActivityLog.js";
 import { getSourceNameById } from "../utils/sourceNameResolver.js";
+import { getItemStatusNameById } from "../utils/itemStatusNameResolver.js";
 import { itemSource } from "../constants.js";
+import { itemStatus } from "../constants.js";
+
 
 const itemsDataFetcher = async (filter = {}, skip) => {
   const totalItems = await Item.countDocuments(filter);
@@ -145,6 +148,10 @@ const addNewItem = asyncHandler(async (req, res) => {
   if (!sourceName) {
     throw new ApiError(404, "Valid item source not found.");
   }
+  const statusName = getItemStatusNameById(itemStatus);
+  if (!statusName) {
+    throw new ApiError(404, "Valid item status not found.");
+  }
   const category = await Category.findById(itemCategory);
   const categoryAbbr = category.categoryAbbreviation;
   const idOffset = category.lastItemSerialNumber;
@@ -160,7 +167,7 @@ const addNewItem = asyncHandler(async (req, res) => {
       itemRoom,
       itemSource: sourceName,
       itemCost,
-      itemStatus,
+      itemStatus: statusName,
       itemAcquiredDate,
       itemSerialNumber: `${currentYear}${categoryAbbr}${serial}`,
       createdBy: req.user._id,
@@ -221,12 +228,20 @@ const getItemSource = asyncHandler(async (req, res) => {
       new ApiResponse(200, itemSource, "Item Sources fetched successfully")
     );
 });
+const getItemStatus = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, itemStatus, "Item statuses fetched successfully.")
+    );
+});
 const updateItemStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const [itemId] = parseObjectId(trimValues([id]));
-  const { status } = req.body;
+  const { statusId } = req.body;
+  const statusName = getItemStatusNameById(trimValues([statusId]));
   const allowedStatus = ["Working", "Repairable", "Not working"];
-  if (!allowedStatus.includes(status)) {
+  if (!allowedStatus.includes(statusName)) {
     throw new ApiError(403, "Bad request:Invalid status.");
   }
   const itemInContention = await Item.findById(itemId)
@@ -238,7 +253,7 @@ const updateItemStatus = asyncHandler(async (req, res) => {
   }
   const updatedItem = await Item.findByIdAndUpdate(
     itemId,
-    { itemStatus: status },
+    { itemStatus: statusName },
     { new: true }
   );
   if (!updatedItem) {
@@ -430,27 +445,29 @@ const updateItemDetails = asyncHandler(async (req, res) => {
 });
 const filterItems = asyncHandler(async (req, res) => {
   const { category_id, room_id, status, source, starting_date, end_date } =
-    req.body;
+    req.params;
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const [categoryIdString, roomIdString, statusValue, sourceValue] = trimValues(
-    [category_id, room_id, status, source]
+  const [categoryIdString, roomIdString] = trimValues(
+    [category_id, room_id]
   );
+  const statusValue = getItemStatusNameById(trimValues([status]));
+  const sourceValue =getSourceNameById(trimValues([source]));
   const filter = {};
   filter.isActive = true;
-  if (categoryIdString && categoryIdString !== "All") {
+  if (categoryIdString && categoryIdString !== "0") {
     const [categoryId] = parseObjectId([categoryIdString]);
     filter.itemCategory = categoryId;
   }
-  if (roomIdString && roomIdString !== "All") {
+  if (roomIdString && roomIdString !== "0") {
     const [roomId] = parseObjectId([roomIdString]);
     filter.itemRoom = roomId;
   }
-  if (statusValue && statusValue !== "All") {
+  if (statusValue && statusValue !== "0") {
     filter.itemStatus = statusValue;
   }
-  if (sourceValue && sourceValue !== "All") {
+  if (sourceValue && sourceValue !== "0") {
     filter.itemSource = sourceValue;
   }
   if (starting_date || end_date) {
@@ -988,4 +1005,5 @@ export {
   getMultipleItems,
   filterMultipleItems,
   getItemSource,
+  getItemStatus,
 };
