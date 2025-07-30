@@ -452,8 +452,10 @@ const filterItems = asyncHandler(async (req, res) => {
   const [categoryIdString, roomIdString] = trimValues(
     [category_id, room_id]
   );
-  const statusValue = getItemStatusNameById(trimValues([status]));
-  const sourceValue =getSourceNameById(trimValues([source]));
+  const statusValue = getItemStatusNameById(trimValues([status])[0]);
+  console.log(statusValue);
+  const sourceValue =getSourceNameById(trimValues([source])[0]);
+  console.log(sourceValue);
   const filter = {};
   filter.isActive = true;
   if (categoryIdString && categoryIdString !== "0") {
@@ -467,6 +469,7 @@ const filterItems = asyncHandler(async (req, res) => {
   if (statusValue && statusValue !== "0") {
     filter.itemStatus = statusValue;
   }
+  console.log(filter);
   if (sourceValue && sourceValue !== "0") {
     filter.itemSource = sourceValue;
   }
