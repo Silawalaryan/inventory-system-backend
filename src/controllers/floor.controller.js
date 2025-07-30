@@ -38,8 +38,8 @@ const displayAllFloors = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Floors not found");
   }
   res
-    .status(201)
-    .json(new ApiResponse(201, floors, "All floors fetched successfully"));
+    .status(200)
+    .json(new ApiResponse(200, floors, "All floors fetched successfully"));
 });
 
 const updateFloor = asyncHandler(async (req, res) => {
@@ -81,8 +81,8 @@ const updateFloor = asyncHandler(async (req, res) => {
     description: `Renamed '${floorInContention.floorName}' to '${floor.floorName}'`,
   });
   res
-    .status(201)
-    .json(new ApiResponse(201, floor, "Floor updated successfully."));
+    .status(200)
+    .json(new ApiResponse(200, floor, "Floor updated successfully."));
 });
 
 const deleteFloor = asyncHandler(async (req, res) => {
@@ -118,7 +118,7 @@ const deleteFloor = asyncHandler(async (req, res) => {
     },
     description: `Removed floor '${deletionResult.floorName}'`,
   });
-  res.status(201).json(new ApiResponse(201, {}, "Floor Deleted Successfully"));
+  res.status(200).json(new ApiResponse(200, {}, "Floor Deleted Successfully"));
 });
 
 export { addNewFloor, displayAllFloors, updateFloor, deleteFloor };

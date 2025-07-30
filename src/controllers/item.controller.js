@@ -470,17 +470,19 @@ const filterItems = asyncHandler(async (req, res) => {
   if (sourceValue && sourceValue !== "0") {
     filter.itemSource = sourceValue;
   }
-  if (starting_date || end_date) {
+  console.log(filter);
+  if (starting_date !== "0" || end_date !== "0") {
     filter.itemAcquiredDate = {};
-    if (starting_date) {
+    if (starting_date !== "0") {
       filter.itemAcquiredDate.$gte = new Date(starting_date);
     }
-    if (end_date) {
+    if (end_date !== "0") {
       const end = new Date(end_date);
       end.setHours(23, 59, 59, 999);
       filter.itemAcquiredDate.$lte = end;
     }
   }
+  console.log(filter);
   const response = await itemsDataFetcher(filter, skip);
   res
     .status(200)
@@ -798,6 +800,7 @@ const getSpecificItem = asyncHandler(async (req, res) => {
   const [itemId] = parseObjectId(trimValues([id]));
   const filter = {
     _id: itemId,
+    isActive:true
   };
   const matchingItem = await Item.aggregate([
     {

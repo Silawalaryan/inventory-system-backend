@@ -47,9 +47,9 @@ const getAllRoomTypes = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Room types not found");
   }
   return res
-    .status(201)
+    .status(200)
     .json(
-      new ApiResponse(201, roomTypes, "All room types fetched successfully")
+      new ApiResponse(200, roomTypes, "All room types fetched successfully")
     );
 });
 const updateRoomType = asyncHandler(async (req, res) => {
@@ -94,9 +94,9 @@ const updateRoomType = asyncHandler(async (req, res) => {
     description: `Renamed room-type '${roomTypeInContention.roomTypeName}' to '${roomType.roomTypeName}'`,
   });
   return res
-    .status(201)
+    .status(200)
     .json(
-      new ApiResponse(201, roomType, "Room type name updated successfully")
+      new ApiResponse(200, roomType, "Room type name updated successfully")
     );
 });
 const deleteRoomType = asyncHandler(async (req, res) => {

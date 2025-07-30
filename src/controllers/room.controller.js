@@ -371,6 +371,7 @@ const getItemStatusStatsByRoom = asyncHandler(async (req, res) => {
     {
       $match: {
         itemRoom: roomId,
+        isActive: true,
       },
     },
     {
@@ -427,6 +428,7 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
     {
       $match: {
         itemRoom: roomId,
+        isActive: true,
       },
     },
     {
