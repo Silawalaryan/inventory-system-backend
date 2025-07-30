@@ -5,11 +5,10 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { trimValues } from "../utils/trimmer.js";
 
-
 const logsFetcher = async (filter = {}, skip) => {
   const totalLogs = await ActivityLog.countDocuments(filter);
   if (totalLogs === 0) {
-    throw new ApiError(404, "Logs not found.");
+    return { totalLogs: 0, logs: [] };
   }
   const logs = await ActivityLog.find(filter)
     .sort({ createdAt: -1 })
@@ -24,14 +23,14 @@ const getOverallLogs = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can view overall logs.");
   }
-  const filter={};
-  const response = await logsFetcher(filter,skip);
+  const filter = {};
+  const response = await logsFetcher(filter, skip);
   return res
     .status(200)
     .json(new ApiResponse(200, response, "All logs fetched successfully."));
 });
 const getRecentFiveLogs = asyncHandler(async (req, res) => {
-    if (!req.isAdmin) {
+  if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can view overall logs.");
   }
   const recentFiveLogs = await ActivityLog.find()
@@ -59,12 +58,12 @@ const filterLogs = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Only admin can view overall logs.");
   }
   const filter = {};
-  if (starting_date || end_date) {
+  if (starting_date !== "0" || end_date !== "0") {
     filter.createdAt = {};
-    if (starting_date) {
+    if (starting_date !== "0") {
       filter.createdAt.$gte = new Date(starting_date);
     }
-    if (end_date) {
+    if (end_date !== "0") {
       const end = new Date(end_date);
       end.setHours(23, 59, 59, 999);
       filter.createdAt.$lte = end;
