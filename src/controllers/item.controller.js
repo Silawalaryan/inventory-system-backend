@@ -364,7 +364,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     item_category_id,
     item_make_or_model_no,
     item_source,
-    itemStatus,
+    item_status,
   ]);
   if (itemName === "" || item_cost === "" || item_room_id === "0") {
     throw new ApiError(
