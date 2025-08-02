@@ -31,10 +31,16 @@ const itemSchema = new Schema(
       ref: "Room",
       required: true,
     },
+    itemStatusId:{
+      type:String
+    },
     itemStatus: {
       type: String,
       enum: ["Working", "Repairable", "Not working"],
       required: true,
+    },
+    itemSourceId:{
+      type:String,
     },
     itemSource: {
       type: String,

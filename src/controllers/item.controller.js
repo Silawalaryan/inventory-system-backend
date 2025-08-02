@@ -14,7 +14,6 @@ import { getItemStatusNameById } from "../utils/itemStatusNameResolver.js";
 import { itemSource } from "../constants.js";
 import { itemStatus } from "../constants.js";
 
-
 const itemsDataFetcher = async (filter = {}, skip) => {
   const totalItems = await Item.countDocuments(filter);
   if (totalItems === 0) {
@@ -84,12 +83,17 @@ const itemsDataFetcher = async (filter = {}, skip) => {
         itemModelNumberOrMake: 1,
         itemAcquiredDate: 1,
         itemCost: 1,
+        itemStatusId: 1,
         itemStatus: 1,
+        itemSourceId: 1,
         itemSource: 1,
         itemSerialNumber: 1,
         itemDescription: 1,
+        itemFloorId: "$floor._id",
         itemFloor: "$floor.floorName",
+        itemRoomId: "$room._id",
         itemRoom: "$room.roomName",
+        itemCategoryId: "$category._id",
         itemCategory: "$category.categoryName",
         createdBy: "$creator.username",
         createdAt: 1,
@@ -165,8 +169,10 @@ const addNewItem = asyncHandler(async (req, res) => {
       itemModelNumberOrMake,
       itemFloor,
       itemRoom,
+      itemSourceId: itemSource,
       itemSource: sourceName,
       itemCost,
+      itemStatusId: itemStatus,
       itemStatus: statusName,
       itemAcquiredDate,
       itemSerialNumber: `${currentYear}${categoryAbbr}${serial}`,
@@ -253,7 +259,7 @@ const updateItemStatus = asyncHandler(async (req, res) => {
   }
   const updatedItem = await Item.findByIdAndUpdate(
     itemId,
-    { itemStatus: statusName },
+    { itemStatus: statusName, itemStatusId: statusId },
     { new: true }
   );
   if (!updatedItem) {
@@ -342,6 +348,8 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     item_source,
     item_cost,
     item_acquired_date,
+    item_room_id,
+    item_status,
   } = req.body;
   const [
     itemName,
@@ -349,13 +357,21 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     itemCategoryString,
     itemModelNumberOrMake,
     itemSource,
+    itemStatus,
   ] = trimValues([
     item_name,
     item_description,
     item_category_id,
     item_make_or_model_no,
     item_source,
+    itemStatus,
   ]);
+  if (itemName === "" || item_cost === "" || item_room_id === "0") {
+    throw new ApiError(
+      400,
+      "Bad request.Cant update the item with insufficient details."
+    );
+  }
   const itemInContention = await Item.findById(itemId)
     .populate("itemRoom", "roomName")
     .populate("itemFloor", "floorName")
@@ -363,7 +379,6 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   if (!itemInContention) {
     throw new ApiError(404, "Item with provided id not found.");
   }
-  const [itemCategory] = parseObjectId([itemCategoryString]);
   const query = {};
   if (itemName) {
     query.itemName = itemName;
@@ -371,30 +386,34 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   if (itemDescription) {
     query.itemDescription = itemDescription;
   }
-  if (itemCategory) {
+  if (itemCategoryString) {
+    const [itemCategory] = parseObjectId([itemCategoryString]);
     const category = await Category.findById(itemCategory);
     if (!category) {
       throw new ApiError(404, "Valid category matching the given id not found");
     }
     if (itemCategory.equals(itemInContention.itemCategory)) {
-      throw new ApiError(
-        409,
-        "No changes required.Item belongs to same category"
-      );
+      query.itemCategory = itemCategory;
+    } else {
+      query.itemSerialNumber =
+        itemInContention.itemSerialNumber.slice(0, 4) +
+        category.categoryAbbreviation +
+        String(category.lastItemSerialNumber + 1).padStart(3, "0");
+      query.itemCategory = itemCategory;
+      category.lastItemSerialNumber += 1;
+      await category.save({ validateBeforeSave: false });
     }
-    query.itemSerialNumber =
-      itemInContention.itemSerialNumber.slice(0, 4) +
-      category.categoryAbbreviation +
-      String(category.lastItemSerialNumber + 1).padStart(3, "0");
-    query.itemCategory = itemCategory;
-    category.lastItemSerialNumber += 1;
-    await category.save({ validateBeforeSave: false });
   }
   if (itemModelNumberOrMake) {
     query.itemModelNumberOrMake = itemModelNumberOrMake;
   }
   if (itemSource) {
-    query.itemSource = itemSource;
+    const sourceName = getSourceNameById(itemSource);
+    if (!sourceName) {
+      throw new ApiError(404, "Valid item source not found.");
+    }
+    query.itemSourceId = itemSource;
+    query.itemSource = sourceName;
   }
   if (item_cost) {
     query.itemCost = item_cost;
@@ -402,12 +421,35 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   if (item_acquired_date) {
     query.itemAcquiredDate = item_acquired_date;
   }
+  if (itemStatus) {
+    const statusName = getItemStatusNameById(itemStatus);
+    if (!statusName) {
+      throw new ApiError(404, "Valid item status not found.");
+    }
+    query.itemSourceId = itemSource;
+    query.itemSource = sourceName;
+  }
+  if (item_room_id) {
+    const [newRoomId] = parseObjectId(trimValues([item_room_id]));
+    const newRoom = await Room.findById(newRoomId)
+      .populate("floor", "floorName")
+      .lean();
+    if (!newRoom) {
+      throw new ApiError(404, "valid room not found.");
+    }
+    query.itemFloor = newRoom.floor;
+    query.itemRoom = newRoom.roomName;
+  }
   const updatedItem = await Item.findByIdAndUpdate(itemId, query, {
     new: true,
-  });
+  })
+    .populate("itemFloor", "floorName")
+    .populate("itemRoom", "roomName")
+    .lean();
   if (!updatedItem) {
     throw new ApiError(500, "Updating item details unsuccessful.");
   }
+
   await addActivityLog({
     action: "edited details",
     entityType: "Item",
@@ -419,15 +461,15 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     changes: {
       room: {
         from: itemInContention.itemRoom.roomName,
-        to: itemInContention.itemRoom.roomName,
+        to: updatedItem.itemRoom.roomName,
       },
       floor: {
         from: itemInContention.itemFloor.floorName,
-        to: itemInContention.itemFloor.floorName,
+        to: updatedItem.itemFloor.floorName,
       },
       status: {
         from: itemInContention.itemStatus,
-        to: itemInContention.itemStatus,
+        to: updatedItem.itemStatus,
       },
       isActive: { from: true, to: true },
       itemSerialNumber: {
@@ -435,7 +477,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
         to: updatedItem.itemSerialNumber,
       },
     },
-    description: `Edited details of item '${itemInContention.itemName}'`,
+    description: `Edited details of item '${updatedItem.itemName}'`,
   });
   return res
     .status(200)
@@ -449,12 +491,10 @@ const filterItems = asyncHandler(async (req, res) => {
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const [categoryIdString, roomIdString] = trimValues(
-    [category_id, room_id]
-  );
+  const [categoryIdString, roomIdString] = trimValues([category_id, room_id]);
   const statusValue = getItemStatusNameById(trimValues([status])[0]);
   console.log(statusValue);
-  const sourceValue =getSourceNameById(trimValues([source])[0]);
+  const sourceValue = getSourceNameById(trimValues([source])[0]);
   console.log(sourceValue);
   const filter = {};
   filter.isActive = true;
@@ -803,7 +843,7 @@ const getSpecificItem = asyncHandler(async (req, res) => {
   const [itemId] = parseObjectId(trimValues([id]));
   const filter = {
     _id: itemId,
-    isActive:true
+    isActive: true,
   };
   const matchingItem = await Item.aggregate([
     {
