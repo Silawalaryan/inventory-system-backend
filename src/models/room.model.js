@@ -24,6 +24,9 @@ const roomSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    roomNameNormalized:{
+      type:String,
+    }
   },
   { timestamps: true }
 );

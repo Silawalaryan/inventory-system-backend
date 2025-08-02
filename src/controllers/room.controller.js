@@ -128,6 +128,7 @@ const addNewRoom = asyncHandler(async (req, res) => {
     floor: roomFloorId,
     roomType: roomTypeId,
     createdBy: req.user._id,
+    roomNameNormalized: roomName.toLowerCase(),
   };
   if (allottedTo) {
     query.allottedTo = allottedTo;
@@ -173,6 +174,7 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
     roomIdString,
     allottedTo,
   ] = trimValues([room_name, room_floor_id, room_type_id, id, allotted_to]);
+  const roomNameNormalized = roomName.toLowerCase();
   const [roomId] = parseObjectId([roomIdString]);
   if (!(roomName || roomFloorIdString || roomTypeIdString || allottedTo)) {
     throw new ApiError(
@@ -194,7 +196,7 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
   const changesForActivityLog = {};
   if (roomName) {
     const existingRoomName = await Room.findOne({
-      roomName,
+      roomNameNormalized,
       _id: { $ne: roomId },
     });
     if (existingRoomName) {
@@ -230,7 +232,7 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
     };
     updateQuery.roomType = roomTypeId;
   }
-  if (allottedTo) {
+  if (allottedTo || allottedTo === "") {
     changesForActivityLog.allottedTo = {
       from: roomInContention.allottedTo,
       to: allottedTo,
@@ -247,12 +249,12 @@ const updateRoomDetails = asyncHandler(async (req, res) => {
     action: "edited details",
     entityType: "Room",
     entityId: roomInContention._id,
-    entityName: roomInContention.roomName,
+    entityName: updatedRoom.roomName,
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: changesForActivityLog,
-    description: `Edited details of room '${roomInContention.roomName}'`,
+    description: `Edited details of room '${updatedRoom.roomName}'`,
   });
   res
     .status(200)
