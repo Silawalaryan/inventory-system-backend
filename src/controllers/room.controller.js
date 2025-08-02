@@ -86,7 +86,9 @@ const roomsDataFetcher = async (filter = {}, skip) => {
         _id: 1,
         roomName: 1,
         totalItems: 1,
+        roomFloorId: "$floor._id",
         roomFloorName: "$floor.floorName",
+        roomTypeId: "$roomType._id",
         roomTypeName: "$roomType.roomTypeName",
         creatorUsername: "$creator.username",
         allottedTo: 1, //is projected if defined for a document
