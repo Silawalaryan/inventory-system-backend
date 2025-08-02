@@ -318,7 +318,7 @@ const softDeleteItem = asyncHandler(async (req, res) => {
   }
   await addActivityLog({
     action: "removed",
-    entityType: "Room",
+    entityType: "Item",
     entityId: item._id,
     entityName: item.itemName,
     performedBy: req.user._id,
@@ -1037,6 +1037,196 @@ const filterMultipleItems = asyncHandler(async (req, res) => {
       )
     );
 });
+const getIndividualInstancesOfSimilarItemsInARoom = asyncHandler(
+  async (req, res) => {
+    const { item_name, item_model, item_room_id } = req.params;
+    const [itemName, itemModel] = trimValues([item_name, item_model]);
+    console.log(itemModel);
+    const [itemRoom] = parseObjectId(trimValues([item_room_id]));
+    const filter = {
+      itemName,
+      itemRoom,
+    };
+    if (itemModel === '""') {
+      filter.itemModelNumberOrMake = "";
+    } else {
+      filter.itemModelNumberOrMake = itemModel;
+    }
+    console.log(filter);
+    const allIndividualInstancesOfSimilarItems = await Item.aggregate([
+      {
+        $match: filter,
+      },
+      {
+        $project: {
+          itemName: 1,
+          itemModel: "$itemModelNumberOrMake",
+          itemAcquiredDate: 1,
+          itemSerialNumber: 1,
+          itemStatus: 1,
+          itemStatusId: 1,
+          itemSource: 1,
+          itemSourceId: 1,
+          itemCost: 1,
+        },
+      },
+    ]);
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          allIndividualInstancesOfSimilarItems,
+          `All instances of similar items of room with id ${item_room_id} fetched successfully`
+        )
+      );
+  }
+);
+const bulkDeleteItems = asyncHandler(async (req, res) => {
+  if (!req.isAdmin) {
+    throw new ApiError(401, "Only admin can delete items");
+  }
+  const { item_ids } = req.body;
+  if (!Array.isArray(item_ids) || item_ids.length === 0) {
+    throw new ApiError(403, "Provide item ids for bulk delete");
+  }
+  const itemIds = parseObjectId(trimValues(item_ids));
+  // const updatedItems = await Item.updateMany(
+  //   { _id: { $in: itemIds } },
+  //   { $set: { isActive: false, deactivatedAt: new Date() } }
+  // );
+  const items = await Item.find({ _id: { $in: itemIds }, isActive: true })
+  .populate("itemRoom")
+  .populate("itemFloor");
+const updatePromises = items.map(async (item) => {
+  await Item.updateOne({ _id: item._id }, { $set: { isActive: false, deactivatedAt: new Date() } });
+
+  await addActivityLog({
+    action: "removed",
+    entityType: "Item",
+    entityId: item._id,
+    entityName: item.itemName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      room: {
+        from: item.itemRoom.roomName ,
+        to: item.itemRoom.roomName ,
+      },
+      floor: {
+        from: item.itemFloor.floorName ,
+        to: item.itemFloor.floorName ,
+      },
+      status: {
+        from: item.itemStatus,
+        to: item.itemStatus,
+      },
+      isActive: {
+        from: true,
+        to: false,
+      },
+    },
+    description: `Removed item '${item.itemName}'`,
+  });
+});
+
+await Promise.all(updatePromises);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Bulk delete successful"));
+});
+const bulkUpdateItemStatus = asyncHandler(async (req, res) => {
+  if (!req.isAdmin) {
+    throw new ApiError(401, "Only admin can update status of items");
+  }
+  const { item_ids,statusId } = req.body;
+  if (!Array.isArray(item_ids) || item_ids.length === 0) {
+    throw new ApiError(403, "Provide item ids for bulk delete");
+  }
+  const itemIds = parseObjectId(trimValues(item_ids));
+  const status = getItemStatusNameById(statusId);
+  if(!status){
+    throw new ApiError(404,"Valid status not found");
+  }
+  const items = await Item.find({ _id: { $in: itemIds }, isActive: true })
+  .populate("itemRoom")
+  .populate("itemFloor");
+const updatePromises = items.map(async (item) => {
+  await Item.updateOne({ _id: item._id }, { $set: { itemStatus:status,itemStatusId:statusId } });
+
+  await addActivityLog({
+    action: "changed status",
+    entityType: "Item",
+    entityId: item._id,
+    entityName: item.itemName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      room: {
+        from: item.itemRoom.roomName,
+        to: item.itemRoom.roomName,
+      },
+      floor: {
+        from: item.itemFloor.floorName,
+        to: item.itemFloor.floorName,
+      },
+      status: { from: item.itemStatus, to: status },
+      isActive: { from: true, to: true },
+    },
+    description: `Changed status of item '${item.itemName}' to '${status}'`,
+  });
+});
+
+await Promise.all(updatePromises);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Bulk item status updation successful"));
+});
+const bulkMoveItemsBetweenRooms = asyncHandler(async (req, res) => {
+  if (!req.isAdmin) {
+    throw new ApiError(401, "Only admin can move items between rooms");
+  }
+  const { item_ids,new_room_id } = req.body;
+  if (!Array.isArray(item_ids) || item_ids.length === 0) {
+    throw new ApiError(403, "Provide item ids for bulk delete");
+  }
+  const itemIds = parseObjectId(trimValues(item_ids));
+  const newRoomId = parseObjectId(trimValues([new_room_id]));
+  const newRoom = await Room.findById(newRoomId).populate("floor","floorName");
+  if(!newRoom){
+    throw new ApiError(404,"Valid room not found");
+  }
+  const items = await Item.find({ _id: { $in: itemIds }, isActive: true })
+  .populate("itemRoom")
+  .populate("itemFloor");
+const updatePromises = items.map(async (item) => {
+  await Item.updateOne({ _id: item._id }, { $set: { itemRoom:newRoom._id,itemFloor:newRoom.floor._id } });
+
+  await addActivityLog({
+    action: "moved",
+    entityType: "Item",
+    entityId: item._id,
+    entityName: item.itemName,
+    performedBy: req.user._id,
+    performedByName: req.user.username,
+    performedByRole: req.user.role,
+    changes: {
+      room: { from: item.itemRoom.roomName, to: newRoom.roomName },
+      floor: { from: item.itemFloor.floorName, to: newRoom.floor.floorName },
+      status: { from: item.itemStatus, to: item.itemStatus },
+      isActive: { from: true, to: true },
+    },
+    description: `Moved '${item.itemName}' to '${newRoom.roomName}'`,
+  });
+});
+
+await Promise.all(updatePromises);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Bulk item movement between rooms successful"));
+});
 export {
   addNewItem,
   updateItemStatus,
@@ -1055,4 +1245,8 @@ export {
   filterMultipleItems,
   getItemSource,
   getItemStatus,
+  getIndividualInstancesOfSimilarItemsInARoom,
+  bulkDeleteItems,
+  bulkUpdateItemStatus,
+  bulkMoveItemsBetweenRooms
 };

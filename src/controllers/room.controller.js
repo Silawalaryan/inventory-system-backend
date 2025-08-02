@@ -436,8 +436,19 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "categories",
+        localField: "itemCategory",
+        foreignField: "_id",
+        as: "category",
+      },
+    },
+    {
+      $unwind: "$category",
+    },
+    {
       $group: {
-        _id: "$itemName",
+        _id: { itemName: "$itemName", itemModel: "$itemModelNumberOrMake" },
         workingCount: {
           $sum: {
             $cond: [{ $eq: ["$itemStatus", "Working"] }, 1, 0],
@@ -453,7 +464,8 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
             $cond: [{ $eq: ["$itemStatus", "Not working"] }, 1, 0],
           },
         },
-        itemModel: { $first: "$itemModelNumberOrMake" },
+        itemCategoryId: { $first: "$category._id" },
+        itemCategoryName: { $first: "$category.categoryName" },
         itemDescription: { $first: "$itemDescription" },
       },
     },
@@ -467,13 +479,15 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
     {
       $project: {
         _id: 0,
-        itemName: "$_id",
-        itemModel: 1,
+        itemName: "$_id.itemName",
+        itemModel: "$_id.itemModel",
         workingCount: 1,
         repairableCount: 1,
         notWorkingCount: 1,
         totalCount: 1,
         itemDescription: 1,
+        itemCategoryId: 1,
+        itemCategoryName: 1,
       },
     },
   ]);
