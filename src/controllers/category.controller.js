@@ -14,6 +14,8 @@ const addNewCategory = asyncHandler(async (req, res) => {
     category_name,
     category_abbr,
   ]);
+  const categoryNameNormalized = categoryName.toLowerCase();
+  const categoryAbbreviationNormalized = categoryAbbreviation.toLowerCase();
   if (!(categoryName && categoryAbbreviation)) {
     throw new ApiError(
       400,
@@ -24,7 +26,8 @@ const addNewCategory = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Only admin can add a category");
   }
   const existingCategory = await Category.findOne({
-    $or: [{ categoryName }, { categoryAbbreviation }],
+    isActive: true,
+    $or: [{ categoryNameNormalized }, { categoryAbbreviationNormalized }],
   });
   if (existingCategory) {
     throw new ApiError(409, "Category already exists");
@@ -32,6 +35,8 @@ const addNewCategory = asyncHandler(async (req, res) => {
   const category = await Category.create({
     categoryName,
     categoryAbbreviation,
+    categoryNameNormalized,
+    categoryAbbreviationNormalized,
     createdBy: req.user._id,
   });
   await addActivityLog({
@@ -72,6 +77,8 @@ const updateCategory = asyncHandler(async (req, res) => {
     category_name,
     category_abbr,
   ]);
+  const categoryNameNormalized = categoryName.toLowerCase();
+  const categoryAbbreviationNormalized = categoryAbbreviation.toLowerCase();
   if (!(categoryName || categoryAbbreviation)) {
     throw new ApiError(400, "Bad request.All the fields are empty.");
   }
@@ -86,7 +93,8 @@ const updateCategory = asyncHandler(async (req, res) => {
   let changesForActivityLog = {};
   if (categoryName) {
     const existing = await Category.findOne({
-      categoryName,
+      isActive: true,
+      categoryNameNormalized,
       _id: { $ne: categoryId },
     });
     if (existing) {
@@ -100,7 +108,7 @@ const updateCategory = asyncHandler(async (req, res) => {
   }
   if (categoryAbbreviation) {
     const existing = await Category.findOne({
-      categoryAbbreviation,
+      categoryAbbreviationNormalized,
       _id: { $ne: categoryId },
     });
     if (existing) {
@@ -124,12 +132,12 @@ const updateCategory = asyncHandler(async (req, res) => {
     action: "edited details",
     entityType: "Category",
     entityId: updatedCategory._id,
-    entityName: categoryInContention.categoryName,
+    entityName: updatedCategory.categoryName,
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
     changes: changesForActivityLog,
-    description: `Edited details of category '${categoryInContention.categoryName}'`,
+    description: `Edited details of category '${updatedCategory.categoryName}'`,
   });
   res
     .status(200)
@@ -260,7 +268,7 @@ const getItemStatusStatsByCategory = asyncHandler(async (req, res) => {
     {
       $match: {
         itemCategory: categoryId,
-        isActive:true,
+        isActive: true,
       },
     },
     {
@@ -301,10 +309,10 @@ const getItemStatusStatsByCategory = asyncHandler(async (req, res) => {
 });
 const getItemAcquisitionStatsByCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const filter = {isActive:true};
+  const filter = { isActive: true };
   if (id && id !== "0") {
     const [categoryId] = parseObjectId(trimValues([id]));
-    filter.itemCategory= categoryId ;
+    filter.itemCategory = categoryId;
   }
 
   const itemsGroupedByAcquisitionForParticularCategory = await Item.aggregate([

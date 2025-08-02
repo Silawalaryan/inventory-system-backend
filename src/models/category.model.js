@@ -5,21 +5,27 @@ const categorySchema = new Schema(
       type: String,
       required: true,
     },
-    categoryAbbreviation:{
-      type:String
+    categoryAbbreviation: {
+      type: String,
     },
-    isActive:{
-      type:Boolean,
-      default: true
+    isActive: {
+      type: Boolean,
+      default: true,
     },
-    createdBy:{
-      type:Schema.Types.ObjectId,
-      ref:"User",
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
-    lastItemSerialNumber:{
-      type:Number,
-    default:0,
-    }
+    lastItemSerialNumber: {
+      type: Number,
+      default: 0,
+    },
+    categoryNameNormalized: {
+      type: String,
+    },
+    categoryAbbreviationNormalized: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
