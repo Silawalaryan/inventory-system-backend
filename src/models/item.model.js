@@ -58,6 +58,9 @@ const itemSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    deactivatedAt:{
+      type:Date
+    },
     itemRemark:{
       type:String
     },

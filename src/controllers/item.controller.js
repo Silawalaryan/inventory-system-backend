@@ -310,7 +310,7 @@ const softDeleteItem = asyncHandler(async (req, res) => {
   }
   const deletedItem = await Item.findByIdAndUpdate(
     itemId,
-    { isActive: false },
+    { isActive: false, deactivatedAt: new Date() },
     { new: true }
   );
   if (!deletedItem) {
@@ -432,9 +432,9 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   if (item_room_id) {
     const [newRoomId] = parseObjectId(trimValues([item_room_id]));
     console.log(newRoomId);
-    const newRoom = await Room.findById(newRoomId)
-  
-      console.log(newRoom);
+    const newRoom = await Room.findById(newRoomId);
+
+    console.log(newRoom);
     if (!newRoom) {
       throw new ApiError(404, "valid room not found.");
     }
@@ -451,7 +451,6 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   if (!updatedItem) {
     throw new ApiError(500, "Updating item details unsuccessful.");
   }
-  
 
   await addActivityLog({
     action: "edited details",
@@ -585,9 +584,6 @@ const getInventoryItemStats = asyncHandler(async (req, res) => {
 
   const result = await Item.aggregate([
     {
-      $match: { isActive: true },
-    },
-    {
       $facet: {
         statusCounts: [
           {
@@ -609,6 +605,10 @@ const getInventoryItemStats = asyncHandler(async (req, res) => {
           {
             $match: {
               itemAcquiredDate: { $lte: endOfLastMonth },
+              $or: [
+                { isActive: true },
+                { deactivatedAt: { $gt: endOfLastMonth } },
+              ],
             },
           },
           {
