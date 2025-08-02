@@ -426,8 +426,8 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     if (!statusName) {
       throw new ApiError(404, "Valid item status not found.");
     }
-    query.itemSourceId = itemSource;
-    query.itemSource = sourceName;
+    query.itemStatusId = itemStatus;
+    query.itemStatus = statusName;
   }
   if (item_room_id) {
     const [newRoomId] = parseObjectId(trimValues([item_room_id]));
