@@ -245,7 +245,7 @@ const updateItemStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const [itemId] = parseObjectId(trimValues([id]));
   const { statusId } = req.body;
-  const statusName = getItemStatusNameById(trimValues([statusId]));
+  const statusName = getItemStatusNameById(statusId);
   const allowedStatus = ["Working", "Repairable", "Not working"];
   if (!allowedStatus.includes(statusName)) {
     throw new ApiError(403, "Bad request:Invalid status.");
@@ -293,7 +293,7 @@ const updateItemStatus = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         updatedItem,
-        `Item with status updated to '${status}'.`
+        `Item with status updated to '${statusName}'.`
       )
     );
 });
@@ -431,15 +431,17 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   }
   if (item_room_id) {
     const [newRoomId] = parseObjectId(trimValues([item_room_id]));
+    console.log(newRoomId);
     const newRoom = await Room.findById(newRoomId)
-      .populate("floor", "floorName")
-      .lean();
+  
+      console.log(newRoom);
     if (!newRoom) {
       throw new ApiError(404, "valid room not found.");
     }
     query.itemFloor = newRoom.floor;
-    query.itemRoom = newRoom.roomName;
+    query.itemRoom = newRoom._id;
   }
+  console.log(query);
   const updatedItem = await Item.findByIdAndUpdate(itemId, query, {
     new: true,
   })
@@ -449,6 +451,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   if (!updatedItem) {
     throw new ApiError(500, "Updating item details unsuccessful.");
   }
+  
 
   await addActivityLog({
     action: "edited details",
@@ -709,7 +712,7 @@ const moveItemBetweenRooms = asyncHandler(async (req, res) => {
       status: { from: item.itemStatus, to: item.itemStatus },
       isActive: { from: true, to: true },
     },
-    description: `${req.user.username}(${req.user.role}) moved '${item.itemName}' to '${newRoom.roomName}'`,
+    description: `Moved '${item.itemName}' to '${newRoom.roomName}'`,
   });
   return res
     .status(200)

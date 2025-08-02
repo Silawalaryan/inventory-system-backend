@@ -31,18 +31,18 @@ const roomSchema = new Schema(
   { timestamps: true }
 );
 //indexing to run efficient text-based queries
-roomSchema.index(
-  {
-    roomName: "text",
-    allottedTo: "text",
-  },
-  {
-    weights: {
-      roomName: 10,
-      allottedTo: 5,
-    },
-  }
-);
+// roomSchema.index(
+//   {
+//     roomName: "text",
+//     allottedTo: "text",
+//   },
+//   {
+//     weights: {
+//       roomName: 10,
+//       allottedTo: 5,
+//     },
+//   }
+// );
 export const Room = mongoose.model("Room", roomSchema);
 //here a single floor can have multiple rooms. so there is a one to many relationship.
 //It is efficient when the "many" side holds the reference to the "one" side.
