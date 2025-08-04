@@ -13,6 +13,9 @@ const floorSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    floorNameNormalized:{
+      type:String,
+    }
   },
   { timestamps: true }
 );

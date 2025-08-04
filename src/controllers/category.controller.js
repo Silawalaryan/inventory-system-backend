@@ -105,9 +105,11 @@ const updateCategory = asyncHandler(async (req, res) => {
       to: categoryName,
     };
     updateQuery.categoryName = categoryName;
+    updateQuery.categoryNameNormalized = categoryNameNormalized;
   }
   if (categoryAbbreviation) {
     const existing = await Category.findOne({
+      isActive: true,
       categoryAbbreviationNormalized,
       _id: { $ne: categoryId },
     });
@@ -119,6 +121,7 @@ const updateCategory = asyncHandler(async (req, res) => {
       to: categoryAbbreviation,
     };
     updateQuery.categoryAbbreviation = categoryAbbreviation;
+    updateQuery.categoryAbbreviationNormalized = categoryAbbreviationNormalized;
   }
   const updatedCategory = await Category.findByIdAndUpdate(
     categoryId,

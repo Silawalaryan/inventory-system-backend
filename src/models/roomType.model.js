@@ -13,6 +13,9 @@ const roomTypeSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
     },
+    roomTypeNameNormalized:{
+      type:String
+    }
   },
   { timestamps: true }
 );

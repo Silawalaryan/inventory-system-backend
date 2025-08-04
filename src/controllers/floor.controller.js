@@ -11,11 +11,12 @@ const addNewFloor = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can add a floor");
   }
-  const existingFloor = await Floor.findOne({ floorName });
+  const floorNameNormalized = floorName.toLowerCase();
+  const existingFloor = await Floor.findOne({ isActive:true,floorNameNormalized });
   if (existingFloor) {
     throw new ApiError(409, "Floor already exists");
   }
-  const floor = await Floor.create({ floorName, createdBy: req.user._id });
+  const floor = await Floor.create({ floorName, createdBy: req.user._id,floorNameNormalized });
   if (!floor) {
     throw new ApiError(500, "Floor addition unsuccessful.");
   }
@@ -48,12 +49,13 @@ const updateFloor = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(403, "Only admins can update floor details");
   }
+  const floorNameNormalized= floorName.toLowerCase();
   const floorInContention = await Floor.findById(floorId);
   if(!floorInContention){
     throw new ApiError(404,"Floor with the given id not found.");
   }
-  const existing = await Floor.findOne({
-    floorName,
+  const existing = await Floor.findOne({isActive:true,
+    floorNameNormalized,
     _id: { $ne: req.params.id },
   });
   if (existing) {
@@ -61,7 +63,9 @@ const updateFloor = asyncHandler(async (req, res) => {
   }
   const floor = await Floor.findByIdAndUpdate(
     floorId,
-    { floorName },
+    { floorName,
+      floorNameNormalized
+     },
     { new: true }
   );
   if (!floor) {
