@@ -9,17 +9,16 @@ import { addActivityLog } from "../utils/addActivityLog.js";
 import { Item } from "../models/item.model.js";
 
 const addNewCategory = asyncHandler(async (req, res) => {
-  const { category_name, category_abbr } = req.body;
-  const [categoryName, categoryAbbreviation] = trimValues([
-    category_name,
-    category_abbr,
+  const { category_name} = req.body;
+  const [categoryName] = trimValues([
+    category_name
   ]);
   const categoryNameNormalized = categoryName.toLowerCase();
-  const categoryAbbreviationNormalized = categoryAbbreviation.toLowerCase();
-  if (!(categoryName && categoryAbbreviation)) {
+
+  if (!categoryName) {
     throw new ApiError(
       400,
-      "Bad request.Category name and abbreviation are required."
+      "Bad request.Category name is required."
     );
   }
   if (!req.isAdmin) {
@@ -27,16 +26,16 @@ const addNewCategory = asyncHandler(async (req, res) => {
   }
   const existingCategory = await Category.findOne({
     isActive: true,
-    $or: [{ categoryNameNormalized }, { categoryAbbreviationNormalized }],
+    categoryNameNormalized,
   });
   if (existingCategory) {
     throw new ApiError(409, "Category already exists");
   }
   const category = await Category.create({
     categoryName,
-    categoryAbbreviation,
+  
     categoryNameNormalized,
-    categoryAbbreviationNormalized,
+
     createdBy: req.user._id,
   });
   await addActivityLog({
@@ -70,16 +69,16 @@ const displayAllCategories = asyncHandler(async (req, res) => {
 });
 
 const updateCategory = asyncHandler(async (req, res) => {
-  const { category_name, category_abbr } = req.body;
+  const { category_name} = req.body;
   const { id } = req.params;
   const [categoryId] = parseObjectId(trimValues([id]));
-  const [categoryName, categoryAbbreviation] = trimValues([
+  const [categoryName] = trimValues([
     category_name,
-    category_abbr,
+
   ]);
   const categoryNameNormalized = categoryName.toLowerCase();
-  const categoryAbbreviationNormalized = categoryAbbreviation.toLowerCase();
-  if (!(categoryName || categoryAbbreviation)) {
+ 
+  if (!categoryName) {
     throw new ApiError(400, "Bad request.All the fields are empty.");
   }
   if (!req.isAdmin) {
@@ -106,22 +105,6 @@ const updateCategory = asyncHandler(async (req, res) => {
     };
     updateQuery.categoryName = categoryName;
     updateQuery.categoryNameNormalized = categoryNameNormalized;
-  }
-  if (categoryAbbreviation) {
-    const existing = await Category.findOne({
-      isActive: true,
-      categoryAbbreviationNormalized,
-      _id: { $ne: categoryId },
-    });
-    if (existing) {
-      throw new ApiError(409, "Category abbreviation is already taken");
-    }
-    changesForActivityLog.abbr = {
-      from: categoryInContention.categoryAbbreviation,
-      to: categoryAbbreviation,
-    };
-    updateQuery.categoryAbbreviation = categoryAbbreviation;
-    updateQuery.categoryAbbreviationNormalized = categoryAbbreviationNormalized;
   }
   const updatedCategory = await Category.findByIdAndUpdate(
     categoryId,
@@ -192,68 +175,66 @@ const getAllCategoryData = asyncHandler(async (req, res) => {
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const [totalCategories, activeCategories] = await Promise.all([
-    Category.countDocuments({ isActive: true }),
-    Category.aggregate([
-      {
-        $match: {
-          isActive: true,
-        },
+  const totalCategories = await Category.countDocuments({ isActive: true });
+  if (totalCategories === 0) {
+    throw new ApiError(200, { totalCategories: 0, categories: [] });
+  }
+  const activeCategories = await Category.aggregate([
+    {
+      $match: {
+        isActive: true,
       },
-      {
-        $skip: skip,
+    },
+    {
+      $skip: skip,
+    },
+    {
+      $limit: PAGINATION_LIMIT,
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "createdBy",
+        foreignField: "_id",
+        as: "creator",
       },
-      {
-        $limit: PAGINATION_LIMIT,
+    },
+    {
+      $unwind: "$creator",
+    },
+    {
+      $lookup: {
+        from: "items",
+        localField: "_id",
+        foreignField: "itemCategory",
+        as: "items",
       },
-      {
-        $lookup: {
-          from: "users",
-          localField: "createdBy",
-          foreignField: "_id",
-          as: "creator",
-        },
-      },
-      {
-        $unwind: "$creator",
-      },
-      {
-        $lookup: {
-          from: "items",
-          localField: "_id",
-          foreignField: "itemCategory",
-          as: "items",
-        },
-      },
-      {
-        $addFields: {
-          totalItems: {
-            $size: {
-              $filter: {
-                input: "$items",
-                as: "item",
-                cond: { $eq: ["$$item.isActive", true] },
-              },
+    },
+    {
+      $addFields: {
+        totalItems: {
+          $size: {
+            $filter: {
+              input: "$items",
+              as: "item",
+              cond: { $eq: ["$$item.isActive", true] },
             },
           },
         },
       },
-      {
-        $project: {
-          _id: 1,
-          categoryName: 1,
-          categoryAbbreviation: 1,
-          totalItems: 1,
-          creatorUsername: "$creator.username",
-          createdAt: 1,
-          updatedAt: 1,
-        },
+    },
+    {
+      $project: {
+        _id: 1,
+        categoryName: 1,
+        totalItems: 1,
+        creatorUsername: "$creator.username",
+        createdAt: 1,
+        updatedAt: 1,
       },
-    ]),
+    },
   ]);
-  if (activeCategories.length === 0) {
-    throw new ApiError(404, "Categories not found.");
-  }
+
   return res
     .status(200)
     .json(

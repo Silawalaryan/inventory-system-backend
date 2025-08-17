@@ -16,16 +16,6 @@ const categorySchema = new Schema(
     categoryNameNormalized: {
       type: String,
     },
-    // lastItemSerialNumber: {
-      //   type: Number,
-      //   default: 0,
-      // },
-      // categoryAbbreviation: {
-      //   type: String,
-      // },
-    // categoryAbbreviationNormalized: {
-    //   type: String,
-    // },
   },
   { timestamps: true }
 );

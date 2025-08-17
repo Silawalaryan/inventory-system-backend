@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Item } from "../models/item.model.js";
 import { Category } from "../models/category.model.js";
+import { SubCategory } from "../models/subCategory.model.js";
 import { Room } from "../models/room.model.js";
 import { PAGINATION_LIMIT } from "../constants.js";
 import { trimValues } from "../utils/trimmer.js";
@@ -56,6 +57,17 @@ const itemsDataFetcher = async (filter = {}, skip) => {
     },
     {
       $lookup: {
+        from: "subcategories",
+        localField: "itemSubCategory",
+        foreignField: "_id",
+        as: "subCategory",
+      },
+    },
+    {
+      $unwind: "$subCategory",
+    },
+    {
+      $lookup: {
         from: "rooms",
         localField: "itemRoom",
         foreignField: "_id",
@@ -95,6 +107,8 @@ const itemsDataFetcher = async (filter = {}, skip) => {
         itemRoom: "$room.roomName",
         itemCategoryId: "$category._id",
         itemCategory: "$category.categoryName",
+        itemSubCategoryId:"$subCategory._id",
+        itemSubCategory:"$subCategory.subCategoryName",
         createdBy: "$creator.username",
         createdAt: 1,
         updatedAt: 1,
@@ -108,6 +122,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     item_name,
     item_description,
     item_category_id,
+    item_subCategory_id,
     item_make_or_model_no,
     item_floor_id,
     item_room_id,
@@ -124,6 +139,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     itemName,
     itemDescription,
     itemCategoryIdString,
+    itemSubCategoryIdString,
     itemModelNumberOrMake,
     itemFloorIdString,
     itemRoomIdString,
@@ -135,6 +151,7 @@ const addNewItem = asyncHandler(async (req, res) => {
     item_name,
     item_description,
     item_category_id,
+    item_subCategory_id,
     item_make_or_model_no,
     item_floor_id,
     item_room_id,
@@ -143,10 +160,11 @@ const addNewItem = asyncHandler(async (req, res) => {
     item_status,
     item_acquired_date,
   ]);
-  const [itemFloor, itemRoom, itemCategory] = parseObjectId([
+  const [itemFloor, itemRoom, itemCategory, itemSubCategory] = parseObjectId([
     itemFloorIdString,
     itemRoomIdString,
     itemCategoryIdString,
+    itemSubCategoryIdString,
   ]);
   const sourceName = getSourceNameById(itemSource);
   if (!sourceName) {
@@ -156,9 +174,9 @@ const addNewItem = asyncHandler(async (req, res) => {
   if (!statusName) {
     throw new ApiError(404, "Valid item status not found.");
   }
-  const category = await Category.findById(itemCategory);
-  const categoryAbbr = category.categoryAbbreviation;
-  const idOffset = category.lastItemSerialNumber;
+  const subCategory = await SubCategory.findById(itemSubCategory);
+  const subCategoryAbbr = subCategory.subCategoryAbbreviation;
+  const idOffset = subCategory.lastItemSerialNumber;
   const currentYear = new Date().getFullYear();
   const items = Array.from({ length: item_create_count || 1 }, (_, index) => {
     const serial = String(idOffset + index + 1).padStart(3, "0");
@@ -166,6 +184,7 @@ const addNewItem = asyncHandler(async (req, res) => {
       itemName,
       itemDescription,
       itemCategory,
+      itemSubCategory,
       itemModelNumberOrMake,
       itemFloor,
       itemRoom,
@@ -175,13 +194,13 @@ const addNewItem = asyncHandler(async (req, res) => {
       itemStatusId: itemStatus,
       itemStatus: statusName,
       itemAcquiredDate,
-      itemSerialNumber: `${currentYear}${categoryAbbr}${serial}`,
+      itemSerialNumber: `${currentYear}${subCategoryAbbr}${serial}`,
       createdBy: req.user._id,
     };
   });
   const lastItemSerialNumber = idOffset + items.length;
-  await Category.findByIdAndUpdate(
-    itemCategory,
+  await SubCategory.findByIdAndUpdate(
+    itemSubCategory,
     { lastItemSerialNumber },
     { new: true }
   );
@@ -344,6 +363,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     item_name,
     item_description,
     item_category_id,
+    item_subCategory_id,
     item_make_or_model_no,
     item_source,
     item_cost,
@@ -355,6 +375,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     itemName,
     itemDescription,
     itemCategoryString,
+    itemSubCategoryString,
     itemModelNumberOrMake,
     itemSource,
     itemStatus,
@@ -362,6 +383,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     item_name,
     item_description,
     item_category_id,
+    item_subCategory_id,
     item_make_or_model_no,
     item_source,
     item_status,
@@ -388,20 +410,31 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   }
   if (itemCategoryString) {
     const [itemCategory] = parseObjectId([itemCategoryString]);
-    const category = await Category.findById(itemCategory);
+    const category = await SubCategory.findById(itemCategory);
     if (!category) {
       throw new ApiError(404, "Valid category matching the given id not found");
     }
-    if (itemCategory.equals(itemInContention.itemCategory)) {
-      query.itemCategory = itemCategory;
+    query.itemCategory = itemCategory;
+  }
+  if (itemSubCategoryString) {
+    const [itemSubCategory] = parseObjectId([itemSubCategoryString]);
+    const subCategory = await SubCategory.findById(itemSubCategory);
+    if (!subCategory) {
+      throw new ApiError(
+        404,
+        "Valid  sub category matching the given id not found"
+      );
+    }
+    if (itemSubCategory.equals(itemInContention.itemSubCategory)) {
+      query.itemSubCategory = itemSubCategory;
     } else {
       query.itemSerialNumber =
         itemInContention.itemSerialNumber.slice(0, 4) +
-        category.categoryAbbreviation +
-        String(category.lastItemSerialNumber + 1).padStart(3, "0");
-      query.itemCategory = itemCategory;
-      category.lastItemSerialNumber += 1;
-      await category.save({ validateBeforeSave: false });
+        subCategory.subCategoryAbbreviation +
+        String(subCategory.lastItemSerialNumber + 1).padStart(3, "0");
+      query.itemSubCategory = itemSubCategory;
+      subCategory.lastItemSerialNumber += 1;
+      await subCategory.save({ validateBeforeSave: false });
     }
   }
   if (itemModelNumberOrMake) {
@@ -434,14 +467,13 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     console.log(newRoomId);
     const newRoom = await Room.findById(newRoomId);
 
-    console.log(newRoom);
     if (!newRoom) {
       throw new ApiError(404, "valid room not found.");
     }
     query.itemFloor = newRoom.floor;
     query.itemRoom = newRoom._id;
   }
-  console.log(query);
+
   const updatedItem = await Item.findByIdAndUpdate(itemId, query, {
     new: true,
   })
@@ -488,21 +520,23 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     );
 });
 const filterItems = asyncHandler(async (req, res) => {
-  const { category_id, room_id, status, source, starting_date, end_date } =
+  const { category_id, subCategory_id,room_id, status, source, starting_date, end_date } =
     req.params;
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const [categoryIdString, roomIdString] = trimValues([category_id, room_id]);
+  const [categoryIdString,subCategoryIdString, roomIdString] = trimValues([category_id,subCategory_id, room_id]);
   const statusValue = getItemStatusNameById(trimValues([status])[0]);
-  console.log(statusValue);
   const sourceValue = getSourceNameById(trimValues([source])[0]);
-  console.log(sourceValue);
   const filter = {};
   filter.isActive = true;
   if (categoryIdString && categoryIdString !== "0") {
     const [categoryId] = parseObjectId([categoryIdString]);
     filter.itemCategory = categoryId;
+  }
+  if (subCategoryIdString && subCategoryIdString !== "0") {
+    const [subCategoryId] = parseObjectId([subCategoryIdString]);
+    filter.itemSubCategory = subCategoryId;
   }
   if (roomIdString && roomIdString !== "0") {
     const [roomId] = parseObjectId([roomIdString]);
@@ -1041,7 +1075,7 @@ const getIndividualInstancesOfSimilarItemsInARoom = asyncHandler(
   async (req, res) => {
     const { item_name, item_model, item_room_id } = req.params;
     const [itemName, itemModel] = trimValues([item_name, item_model]);
-    console.log(itemModel);
+    // console.log(itemModel);
     const [itemRoom] = parseObjectId(trimValues([item_room_id]));
     const filter = {
       itemName,
@@ -1052,7 +1086,7 @@ const getIndividualInstancesOfSimilarItemsInARoom = asyncHandler(
     } else {
       filter.itemModelNumberOrMake = itemModel;
     }
-    console.log(filter);
+    // console.log(filter);
     const allIndividualInstancesOfSimilarItems = await Item.aggregate([
       {
         $match: filter,
@@ -1096,42 +1130,45 @@ const bulkDeleteItems = asyncHandler(async (req, res) => {
   //   { $set: { isActive: false, deactivatedAt: new Date() } }
   // );
   const items = await Item.find({ _id: { $in: itemIds }, isActive: true })
-  .populate("itemRoom")
-  .populate("itemFloor");
-const updatePromises = items.map(async (item) => {
-  await Item.updateOne({ _id: item._id }, { $set: { isActive: false, deactivatedAt: new Date() } });
+    .populate("itemRoom")
+    .populate("itemFloor");
+  const updatePromises = items.map(async (item) => {
+    await Item.updateOne(
+      { _id: item._id },
+      { $set: { isActive: false, deactivatedAt: new Date() } }
+    );
 
-  await addActivityLog({
-    action: "removed",
-    entityType: "Item",
-    entityId: item._id,
-    entityName: item.itemName,
-    performedBy: req.user._id,
-    performedByName: req.user.username,
-    performedByRole: req.user.role,
-    changes: {
-      room: {
-        from: item.itemRoom.roomName ,
-        to: item.itemRoom.roomName ,
+    await addActivityLog({
+      action: "removed",
+      entityType: "Item",
+      entityId: item._id,
+      entityName: item.itemName,
+      performedBy: req.user._id,
+      performedByName: req.user.username,
+      performedByRole: req.user.role,
+      changes: {
+        room: {
+          from: item.itemRoom.roomName,
+          to: item.itemRoom.roomName,
+        },
+        floor: {
+          from: item.itemFloor.floorName,
+          to: item.itemFloor.floorName,
+        },
+        status: {
+          from: item.itemStatus,
+          to: item.itemStatus,
+        },
+        isActive: {
+          from: true,
+          to: false,
+        },
       },
-      floor: {
-        from: item.itemFloor.floorName ,
-        to: item.itemFloor.floorName ,
-      },
-      status: {
-        from: item.itemStatus,
-        to: item.itemStatus,
-      },
-      isActive: {
-        from: true,
-        to: false,
-      },
-    },
-    description: `Removed item '${item.itemName}'`,
+      description: `Removed item '${item.itemName}'`,
+    });
   });
-});
 
-await Promise.all(updatePromises);
+  await Promise.all(updatePromises);
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "Bulk delete successful"));
@@ -1140,46 +1177,49 @@ const bulkUpdateItemStatus = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can update status of items");
   }
-  const { item_ids,statusId } = req.body;
+  const { item_ids, statusId } = req.body;
   if (!Array.isArray(item_ids) || item_ids.length === 0) {
     throw new ApiError(403, "Provide item ids for bulk delete");
   }
   const itemIds = parseObjectId(trimValues(item_ids));
   const status = getItemStatusNameById(statusId);
-  if(!status){
-    throw new ApiError(404,"Valid status not found");
+  if (!status) {
+    throw new ApiError(404, "Valid status not found");
   }
   const items = await Item.find({ _id: { $in: itemIds }, isActive: true })
-  .populate("itemRoom")
-  .populate("itemFloor");
-const updatePromises = items.map(async (item) => {
-  await Item.updateOne({ _id: item._id }, { $set: { itemStatus:status,itemStatusId:statusId } });
+    .populate("itemRoom")
+    .populate("itemFloor");
+  const updatePromises = items.map(async (item) => {
+    await Item.updateOne(
+      { _id: item._id },
+      { $set: { itemStatus: status, itemStatusId: statusId } }
+    );
 
-  await addActivityLog({
-    action: "changed status",
-    entityType: "Item",
-    entityId: item._id,
-    entityName: item.itemName,
-    performedBy: req.user._id,
-    performedByName: req.user.username,
-    performedByRole: req.user.role,
-    changes: {
-      room: {
-        from: item.itemRoom.roomName,
-        to: item.itemRoom.roomName,
+    await addActivityLog({
+      action: "changed status",
+      entityType: "Item",
+      entityId: item._id,
+      entityName: item.itemName,
+      performedBy: req.user._id,
+      performedByName: req.user.username,
+      performedByRole: req.user.role,
+      changes: {
+        room: {
+          from: item.itemRoom.roomName,
+          to: item.itemRoom.roomName,
+        },
+        floor: {
+          from: item.itemFloor.floorName,
+          to: item.itemFloor.floorName,
+        },
+        status: { from: item.itemStatus, to: status },
+        isActive: { from: true, to: true },
       },
-      floor: {
-        from: item.itemFloor.floorName,
-        to: item.itemFloor.floorName,
-      },
-      status: { from: item.itemStatus, to: status },
-      isActive: { from: true, to: true },
-    },
-    description: `Changed status of item '${item.itemName}' to '${status}'`,
+      description: `Changed status of item '${item.itemName}' to '${status}'`,
+    });
   });
-});
 
-await Promise.all(updatePromises);
+  await Promise.all(updatePromises);
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "Bulk item status updation successful"));
@@ -1188,44 +1228,49 @@ const bulkMoveItemsBetweenRooms = asyncHandler(async (req, res) => {
   if (!req.isAdmin) {
     throw new ApiError(401, "Only admin can move items between rooms");
   }
-  const { item_ids,new_room_id } = req.body;
+  const { item_ids, new_room_id } = req.body;
   if (!Array.isArray(item_ids) || item_ids.length === 0) {
     throw new ApiError(403, "Provide item ids for bulk delete");
   }
   const itemIds = parseObjectId(trimValues(item_ids));
   const newRoomId = parseObjectId(trimValues([new_room_id]));
-  const newRoom = await Room.findById(newRoomId).populate("floor","floorName");
-  if(!newRoom){
-    throw new ApiError(404,"Valid room not found");
+  const newRoom = await Room.findById(newRoomId).populate("floor", "floorName");
+  if (!newRoom) {
+    throw new ApiError(404, "Valid room not found");
   }
   const items = await Item.find({ _id: { $in: itemIds }, isActive: true })
-  .populate("itemRoom")
-  .populate("itemFloor");
-const updatePromises = items.map(async (item) => {
-  await Item.updateOne({ _id: item._id }, { $set: { itemRoom:newRoom._id,itemFloor:newRoom.floor._id } });
+    .populate("itemRoom")
+    .populate("itemFloor");
+  const updatePromises = items.map(async (item) => {
+    await Item.updateOne(
+      { _id: item._id },
+      { $set: { itemRoom: newRoom._id, itemFloor: newRoom.floor._id } }
+    );
 
-  await addActivityLog({
-    action: "moved",
-    entityType: "Item",
-    entityId: item._id,
-    entityName: item.itemName,
-    performedBy: req.user._id,
-    performedByName: req.user.username,
-    performedByRole: req.user.role,
-    changes: {
-      room: { from: item.itemRoom.roomName, to: newRoom.roomName },
-      floor: { from: item.itemFloor.floorName, to: newRoom.floor.floorName },
-      status: { from: item.itemStatus, to: item.itemStatus },
-      isActive: { from: true, to: true },
-    },
-    description: `Moved '${item.itemName}' to '${newRoom.roomName}'`,
+    await addActivityLog({
+      action: "moved",
+      entityType: "Item",
+      entityId: item._id,
+      entityName: item.itemName,
+      performedBy: req.user._id,
+      performedByName: req.user.username,
+      performedByRole: req.user.role,
+      changes: {
+        room: { from: item.itemRoom.roomName, to: newRoom.roomName },
+        floor: { from: item.itemFloor.floorName, to: newRoom.floor.floorName },
+        status: { from: item.itemStatus, to: item.itemStatus },
+        isActive: { from: true, to: true },
+      },
+      description: `Moved '${item.itemName}' to '${newRoom.roomName}'`,
+    });
   });
-});
 
-await Promise.all(updatePromises);
+  await Promise.all(updatePromises);
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Bulk item movement between rooms successful"));
+    .json(
+      new ApiResponse(200, {}, "Bulk item movement between rooms successful")
+    );
 });
 export {
   addNewItem,
@@ -1248,5 +1293,5 @@ export {
   getIndividualInstancesOfSimilarItemsInARoom,
   bulkDeleteItems,
   bulkUpdateItemStatus,
-  bulkMoveItemsBetweenRooms
+  bulkMoveItemsBetweenRooms,
 };

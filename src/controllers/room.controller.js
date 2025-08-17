@@ -447,6 +447,17 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
       $unwind: "$category",
     },
     {
+      $lookup: {
+        from: "subcategories",
+        localField: "itemSubCategory",
+        foreignField: "_id",
+        as: "subCategory",
+      },
+    },
+    {
+      $unwind: "$subCategory",
+    },
+    {
       $group: {
         _id: { itemName: "$itemName", itemModel: "$itemModelNumberOrMake" },
         workingCount: {
@@ -466,6 +477,8 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
         },
         itemCategoryId: { $first: "$category._id" },
         itemCategoryName: { $first: "$category.categoryName" },
+        itemSubCategoryId:{$first:"$subCategory._id"},
+        itemSubCategoryName:{$first:"$subCategory.subCategoryName"},
         itemDescription: { $first: "$itemDescription" },
       },
     },
@@ -488,6 +501,8 @@ const getOverallItemsDetailsByRoom = asyncHandler(async (req, res) => {
         itemDescription: 1,
         itemCategoryId: 1,
         itemCategoryName: 1,
+        itemSubCategoryId:1,
+        itemSubCategoryName:1
       },
     },
   ]);

@@ -10,6 +10,11 @@ const itemSchema = new Schema(
       ref: "Category",
       required: true,
     },
+    itemSubCategory:{
+      type:Schema.Types.ObjectId,
+      ref:"SubCategory",
+      required:true,
+    },
     itemModelNumberOrMake: {
       type: String,
     },
