@@ -22,9 +22,9 @@ router.route('/description/:page').get(verifyJwt,getAllCategoryData);
 router.route("/:id/item-status-stats").get(verifyJwt,getItemStatusStatsByCategory);
 router.route("/:id/item-acquisition-stats").get(verifyJwt,getItemAcquisitionStatsByCategory);
 
-router.route("/:category_id/subcategories").post(verifyJwt,verifyAdmin,addNewSubCategory);
-router.route("/:category_id/subcategories/:subCategory_id").delete(verifyJwt,verifyAdmin,deleteSubCategory);
-router.route("/:category_id/subcategories/description").get(verifyJwt,getAllSubCategoryData);
-router.route("/:category_id/subcategories").get(verifyJwt,displayAllSubCategories);
+router.route("/subcategories/:category_id").post(verifyJwt,verifyAdmin,addNewSubCategory);
+router.route("/subcategories/:category_id/:subCategory_id").delete(verifyJwt,verifyAdmin,deleteSubCategory);
+router.route("/subcategories/description/:category_id").get(verifyJwt,getAllSubCategoryData);
+router.route("/subcategories/:category_id").get(verifyJwt,displayAllSubCategories);
 
 export default router;
