@@ -410,7 +410,7 @@ const updateItemDetails = asyncHandler(async (req, res) => {
   }
   if (itemCategoryString) {
     const [itemCategory] = parseObjectId([itemCategoryString]);
-    const category = await SubCategory.findById(itemCategory);
+    const category = await Category.findById(itemCategory);
     if (!category) {
       throw new ApiError(404, "Valid category matching the given id not found");
     }
