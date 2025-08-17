@@ -177,7 +177,15 @@ const getAllCategoryData = asyncHandler(async (req, res) => {
   const skip = (page - 1) * PAGINATION_LIMIT;
   const totalCategories = await Category.countDocuments({ isActive: true });
   if (totalCategories === 0) {
-    throw new ApiError(200, { totalCategories: 0, categories: [] });
+    return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { totalCategories:0, categories: [] },
+        "All category data fetched successfully."
+      )
+    );
   }
   const activeCategories = await Category.aggregate([
     {

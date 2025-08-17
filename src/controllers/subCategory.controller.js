@@ -130,7 +130,15 @@ const getAllSubCategoryData = asyncHandler(async (req, res) => {
   
   const totalSubCategories = await SubCategory.countDocuments(filter);
   if (totalSubCategories === 0) {
-    throw new ApiError(200, { totalSubCategories: 0, subCategories: [] });
+   return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { totalSubCategories:0, subCategories:[] },
+        "All  sub category data fetched successfully."
+      )
+    );
   }
   const activeSubCategories = await SubCategory.aggregate([
     {
