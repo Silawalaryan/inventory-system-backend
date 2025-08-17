@@ -9,7 +9,7 @@ const activityLogSchema = new Schema(
     entityType: {
       type: String,
       required: true,
-      enum: ["Item", "User", "Room", "Category", "Floor","Roomtype"],
+      enum: ["Item", "User", "Room", "Category", "Floor","Roomtype","SubCategory"],
     },
     entityId: {
       type: Schema.Types.ObjectId,

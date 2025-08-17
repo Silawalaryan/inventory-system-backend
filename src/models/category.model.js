@@ -5,9 +5,6 @@ const categorySchema = new Schema(
       type: String,
       required: true,
     },
-    categoryAbbreviation: {
-      type: String,
-    },
     isActive: {
       type: Boolean,
       default: true,
@@ -16,16 +13,19 @@ const categorySchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
     },
-    lastItemSerialNumber: {
-      type: Number,
-      default: 0,
-    },
     categoryNameNormalized: {
       type: String,
     },
-    categoryAbbreviationNormalized: {
-      type: String,
-    },
+    // lastItemSerialNumber: {
+      //   type: Number,
+      //   default: 0,
+      // },
+      // categoryAbbreviation: {
+      //   type: String,
+      // },
+    // categoryAbbreviationNormalized: {
+    //   type: String,
+    // },
   },
   { timestamps: true }
 );

@@ -8,6 +8,7 @@ import {
   getItemStatusStatsByCategory,
 getItemAcquisitionStatsByCategory
 } from "../controllers/category.controller.js";
+import { addNewSubCategory } from "../controllers/subCategory.controller.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { verifyAdmin } from "../middlewares/admin_check.middleware.js";
 
@@ -21,4 +22,13 @@ router.route('/description/:page').get(verifyJwt,getAllCategoryData);
 router.route("/:id/item-status-stats").get(verifyJwt,getItemStatusStatsByCategory);
 router.route("/:id/item-acquisition-stats").get(verifyJwt,getItemAcquisitionStatsByCategory);
 
+router.route("/:category_id/subcategories").post(verifyJwt,verifyAdmin,addNewSubCategory);
 export default router;
+//{{server}}/categories/689053e427ac8afe9f4c2f83/subcategories
+
+//{
+    
+// "subCategory_name":"Table",
+// "subCategory_abbr":"TBL"
+
+//}
