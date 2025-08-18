@@ -52,7 +52,7 @@ const addNewSubCategory = asyncHandler(async (req, res) => {
     performedBy: req.user._id,
     performedByName: req.user.username,
     performedByRole: req.user.role,
-    description: `Added a sub category '${subCategory.subcategoryName}' to category '${category.categoryName}'`,
+    description: `Added a sub category '${subCategory.subCategoryName}' to category '${category.categoryName}'`,
   });
   res
     .status(201)

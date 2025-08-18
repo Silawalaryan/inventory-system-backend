@@ -520,12 +520,12 @@ const updateItemDetails = asyncHandler(async (req, res) => {
     );
 });
 const filterItems = asyncHandler(async (req, res) => {
-  const { category_id, subCategory_id,room_id, status, source, starting_date, end_date } =
+  const { category_id, subCategory_id,room_id, floor_id,status, source, starting_date, end_date } =
     req.params;
   let { page } = req.params;
   page = parseInt(page, 10) || 1;
   const skip = (page - 1) * PAGINATION_LIMIT;
-  const [categoryIdString,subCategoryIdString, roomIdString] = trimValues([category_id,subCategory_id, room_id]);
+  const [categoryIdString,subCategoryIdString, roomIdString,floorIdString] = trimValues([category_id,subCategory_id, room_id, floor_id]);
   const statusValue = getItemStatusNameById(trimValues([status])[0]);
   const sourceValue = getSourceNameById(trimValues([source])[0]);
   const filter = {};
@@ -542,14 +542,16 @@ const filterItems = asyncHandler(async (req, res) => {
     const [roomId] = parseObjectId([roomIdString]);
     filter.itemRoom = roomId;
   }
+  if (floorIdString && floorIdString !== "0") {
+    const [floorId] = parseObjectId([floorIdString]);
+    filter.itemFloor = floorId;
+  }
   if (statusValue && statusValue !== "0") {
     filter.itemStatus = statusValue;
   }
-  console.log(filter);
   if (sourceValue && sourceValue !== "0") {
     filter.itemSource = sourceValue;
   }
-  console.log(filter);
   if (starting_date !== "0" || end_date !== "0") {
     filter.itemAcquiredDate = {};
     if (starting_date !== "0") {
