@@ -166,7 +166,7 @@ const exportCSV = asyncHandler(async(req,res)=>{
 
   //Convert to CSV
   const json2csvParser = new Parser({ fields });
-  const csv = json2csvParser.parse(inventoryData);
+  const csv = json2csvParser.parse(exportItemData);
 
   //Send CSV file to frontend
   res.header("Content-Type", "text/csv");
